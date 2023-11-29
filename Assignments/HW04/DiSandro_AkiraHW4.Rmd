@@ -1,0 +1,830 @@
+---
+title: "Geospatial Risk Prediction: Vandalism in Philadelphia (2021)"
+author: "Akira Di Sandro"
+date: "2023-10-23"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(sf)
+library(tidyverse)
+library(tidycensus)
+library(viridis)
+library(gridExtra)
+library(ggpubr)
+library(scales)
+library(ggcorrplot)
+library(spdep)
+library(FNN)
+library(kableExtra)
+library(spatstat.explore)
+library(raster)
+library(classInt)
+
+set.seed(17)
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+```
+
+```{r data download + wrangling, results='hide'}
+# philly bounds
+philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
+  st_transform('ESRI:102728') %>% 
+  dplyr::select(OBJECTID,geometry)
+
+# read incidents file
+incidents21 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_21/incidents_part1_part2.shp") %>% 
+  st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+
+# filter to only keep vandalism incidents
+vandalism <- incidents21 %>% filter(Legend == "Vandalism/Criminal Mischief") # 13670 rows
+
+# only keep what's inside the philly boundary
+vandalism <- vandalism[philly,] # 13578 rows
+
+# same for other risk factors: public drunkenness, arson, disorderly conduct, thefts, theft from vehicle, dui
+# also make feature for nearest neighbor count of these incidents
+public_drunk <- incidents21 %>% filter(Legend == "Public Drunkenness") %>% 
+  dplyr::select(Legend,geometry)
+public_drunk <- public_drunk[philly,]
+
+arson <- incidents21 %>% filter(Legend == "Arson") %>% 
+  dplyr::select(Legend,geometry)
+arson <- arson[philly,]
+
+disorderly <- incidents21 %>% filter(Legend == "Disorderly Conduct") %>% 
+  dplyr::select(Legend,geometry)
+disorderly <- disorderly[philly,]
+
+thefts <- incidents21 %>% filter(Legend == "Thefts") %>% 
+  dplyr::select(Legend,geometry)
+thefts <- thefts[philly,]
+
+theft_from_veh <- incidents21 %>% filter(Legend == "Theft from Vehicle") %>% 
+  dplyr::select(Legend,geometry)
+theft_from_veh <- theft_from_veh[philly,]
+
+dui <- incidents21 %>% filter(Legend == "DRIVING UNDER THE INFLUENCE") %>% 
+  dplyr::select(Legend,geometry)
+dui <- dui[philly,]
+
+# add MedHHInc, TotalPop, maleFemaleRatio, popUnder18 (people under 25, can only find under 18 for now)
+acs_vars <- c("B25026_001E","B01001A_001E","B19013_001E","B09001_001E","B01001_002E","B01001_026E", 
+              "B01001_003E","B01001_004E","B01001_005E","B01001_006E","B01001_007E","B01001_008E","B01001_009E","B01001_010E",
+              "B01001_027E","B01001_028E","B01001_029E","B01001_030E","B01001_031E","B01001_032E","B01001_033E","B01001_034E")
+
+tract21 <- get_acs(geography = "tract", variables = acs_vars,
+                   year = 2021, state = "PA", 
+                   geometry = T, output = "wide") %>% 
+  data.frame() %>% st_as_sf() %>% st_transform(st_crs(vandalism)) %>% 
+  mutate(TotalPop = B25026_001E, 
+         RaceContext = ifelse((B01001A_001E / TotalPop) > 0.5, "Majority White", "Majority non-White"),
+         MedHHInc = B19013_001E,
+         popUnder18 = B09001_001E,
+         maleFemaleRatio = B01001_002E/B01001_026E,
+         maleUnder25 = B01001_003E+B01001_004E+B01001_005E+B01001_006E+B01001_007E+B01001_008E+B01001_009E+B01001_010E,
+         femaleUnder25 = B01001_027E+B01001_028E+B01001_029E+B01001_030E+B01001_031E+B01001_032E+B01001_033E+B01001_034E,
+         popUnder25 = maleUnder25 + femaleUnder25) %>% 
+  dplyr::select(GEOID, TotalPop:popUnder25, geometry)
+
+# block group might be easier to split into fishnet
+# blockgroup21 <- get_acs(geography = "block group", variables = acs_vars,
+#                    year = 2021, state = "PA", 
+#                    geometry = T, output = "wide") %>% 
+#   data.frame() %>% 
+#   mutate(TotalPop = B25026_001E, 
+#          MedHHInc = B19013_001E,
+#          popUnder18 = B09001_001E,
+#          maleFemaleRatio = B01001_002E/B01001_026E,
+#          maleUnder25 = B01001_003E+B01001_004E+B01001_005E+B01001_006E+B01001_007E+B01001_008E+B01001_009E+B01001_010E,
+#          femaleUnder25 = B01001_027E+B01001_028E+B01001_029E+B01001_030E+B01001_031E+B01001_032E+B01001_033E+B01001_034E,
+#          popUnder25 = maleUnder25 + femaleUnder25) %>% 
+#   dplyr::select(GEOID, TotalPop:popUnder25, geometry)
+
+# make sure Inf and NaN are turned into NA
+tract21 <- tract21 %>% mutate(maleFemaleRatio = case_when(is.finite(maleFemaleRatio) ~ maleFemaleRatio,
+                                                          is.infinite(maleFemaleRatio) ~ NA,
+                                                          is.nan(maleFemaleRatio) ~ NA))
+
+# separate into own factors
+# totalpop <- tract21 %>% dplyr::select(TotalPop,geometry)
+# totalpop <- totalpop[philly,]
+# 
+# medHHinc <- tract21 %>% dplyr::select(MedHHInc,geometry)
+# medHHinc <- medHHinc[philly,]
+# 
+# under18 <- tract21 %>% dplyr::select(popUnder18,geometry)
+# under18 <- under18[philly,]
+# 
+# mfratio <- tract21 %>% dplyr::select(maleFemaleRatio,geometry)
+# mfratio <- mfratio[philly,]
+# 
+# munder25 <- tract21 %>% dplyr::select(maleUnder25,geometry)
+# munder25 <- munder25[philly,]
+# 
+# funder25 <- tract21 %>% dplyr::select(femaleUnder25,geometry)
+# funder25 <- funder25[philly,]
+# 
+# under25 <- tract21 %>% dplyr::select(popUnder25,geometry)
+# under25 <- under25[philly,]
+
+# for population of people under 25, might need to add
+# sum B01001_003 - B01001_010 for males under 24
+# sum B01001_027 - B01001_034 for females under 24
+
+# how to join above spatial data to fishnet??
+
+
+# philly neighborhoods
+nhoods_path <- 'https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson'
+nhoods <- st_read(nhoods_path, quiet = T) %>%
+  st_transform('ESRI:102728') %>%
+  dplyr::select(mapname)
+
+# police info
+# police_districts <- st_read("https://opendata.arcgis.com/datasets/62ec63afb8824a15953399b1fa819df2_0.geojson") %>%
+#   st_transform(st_crs(vandalism)) %>%
+#   select(District = DISTRICT_)
+# 
+# police_service_areas <- st_read("https://opendata.arcgis.com/datasets/8dc58605f9dd484295c7d065694cdc0f_0.geojson") %>%
+#   st_transform(st_crs(vandalism)) %>%
+#   select(District = PSA_NUM)
+# 
+# bothPoliceUnits <- rbind(mutate(police_districts,     Legend = "Police Districts"), 
+#                          mutate(police_service_areas, Legend = "Police Beats"))
+ 
+# vacant lots/buildings
+vacant_centroids = st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
+            st_transform(st_crs(vandalism)) %>% 
+            st_centroid() %>%
+            mutate(Legend = "Vacants") %>%
+            dplyr::select(Legend)
+
+# parks & rec
+ppr_sites = st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% st_transform(st_crs(vandalism)) %>% 
+            mutate(Legend = "Parks and Rec") %>%
+            dplyr::select(Legend)
+
+# transit stops
+el       <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
+  st_transform('ESRI:102728')
+bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
+  st_transform('ESRI:102728')
+
+septaStops <-
+  rbind(
+     el %>%
+      mutate(Line = "El") %>%
+      dplyr::select(Station, Line),
+     bsl %>%
+      mutate(Line ="Broad_St") %>%
+      dplyr::select(Station, Line)) %>%
+  st_transform(st_crs(vandalism)) %>%
+  mutate(Legend = "Subway Stops") %>%
+  dplyr::select(Legend)
+
+# proximity to CBD using city_hall as proxy
+city_hall <- bsl %>%
+  st_transform(st_crs(vandalism)) %>%
+  filter(Station=="City Hall") %>%
+  mutate(Legend = "City Hall") %>%
+  dplyr::select(Legend)
+
+# schools
+schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
+  st_transform('ESRI:102728') %>% 
+  mutate(Legend = "Schools") %>% 
+  dplyr::select(Legend)
+
+# features of interest to add
+# - density of property/buildings
+# - proximity to CBD
+# - proximity to transit
+# - proximity to schools
+# - proximity to parks and rec
+# - distance to vacant lots
+
+```
+
+## Introduction
+
+### Background: Vandalism in Philadelphia
+
+In Philadelphia, Vandalism and Criminal Mischief (which we will now continue referring to as simply vandalism) is defined as "intentionally damaging another individual's personal property (such as cars, art, or clothing) or real property (such as a house or apartment)"[^1]. Though vandalism may be thought of as a simple or childish prank, the scale of vandalism can grow as big as expensive damages to public buildings or vehicles. It's important to explore and understand the risks of vandalism because we want to be able to reduce these incidents, especially the expensive ones. Exploring these risks also helps us get a clue as to why vandalism happens and further allows us to brainstorm ways in which people can express their creativity or frustration in other more productive ways.
+
+[^1]: Pennsylvania. Constitution of the Commonwealth of Pennsylvania--1790. Harrisburg :Busch, state printer, 1896.
+
+Vandalism happens everywhere in the city (as seen on the left plot of figure 1), but it particularly clusters in the North Philadelphia West region and in the western-most parts of the city. As with any incident that is reported by the public, we need to be aware of reporting selection bias when mapping vandalism. Some communities have many other worries that may take precedent over vandalism when it comes to reporting. There are also communities that have historically been ignored and silenced which may have a harder time trusting that reporting incidents of vandalism would change anything. Vandalism also encompasses a wide range of damages, from spraypaint on a building wall that can easily be painted over to broken windows on expensive sports cars. I continued my analyses keeping this selection bias in mind and assuming all incidents of vandalism to be of uniform severity and cost for simplicity (which is not the case).
+
+This document summarizes my risk prediction model for Vandalism in Philadelphia pulling data from 2021 and 2022 Incident Reporting data on Open Data Philly as well as some information from the US Census Data for 2021.
+
+#### Figure 1. Vandalism in Philadelphia (2021)
+
+```{r fig1/outcome map}
+
+vand_points <- ggplot() +
+       geom_sf(data = philly, fill = "grey40") +
+       geom_sf(data = vandalism, colour="#fde725ff", size=0.1, show.legend = "point") +
+       labs(title= "Vandalism, Philadelphia - 2021") +
+       mapTheme(title_size = 14)
+
+vand_density <- ggplot() + 
+       geom_sf(data = nhoods, fill = "grey40", color = "lightgrey") +
+       stat_density2d(data = data.frame(st_coordinates(vandalism)),
+                      aes(X, Y, fill = ..level.., alpha = ..level..),
+                      size = 0.01, bins = 40, geom = 'polygon') +
+       scale_fill_viridis() +
+       scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
+       labs(title = "Density of Vandalism Incidents") +
+       mapTheme(title_size = 14) + theme(legend.position = "none")
+
+vand_list <- list(vand_points,vand_density)
+
+do.call(grid.arrange, c(vand_list, ncol = 2, bottom = "Figure 1."))
+
+```
+
+## Methods
+
+### The Fishnet
+
+To make this analysis more digestible, I divided the city of Philadelphia into 500m x 500m squares to crate a fishnet on top of the map of Philadelphia. I then count the number of vandalism incidents in each square on the fishnet and do the same for all possible risk factors for vandalism. Figure 2 shows an example of this with counts of vandalism incidents plotted on the fishnet grid of Philadelphia with higher counts shown in yellow.
+
+#### Figure 2. Vandalism on Fishnet
+
+```{r fig2/fishnet outcome}
+# our CRS is in feet, but want to make fishnet a 500m x 500m
+cell_size <- 500 * 3.28084
+
+fishnet <- 
+  st_make_grid(philly,
+               cellsize = cell_size,  
+               square = TRUE) %>% 
+  .[philly] %>%            
+  st_sf() %>%              
+  mutate(uniqueID = 1:n()) 
+
+crime_net <- 
+  dplyr::select(vandalism) %>% 
+  mutate(countVand = 1) %>% 
+  aggregate(., fishnet, sum) %>%
+  mutate(countVand = replace_na(countVand, 0),
+         uniqueID = as.numeric(rownames(.)),
+         cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
+
+ggplot() +
+  geom_sf(data = crime_net, aes(fill = countVand)) +
+  scale_fill_viridis() +
+  labs(title = "Count of Vandalism for the fishnet",
+       caption = "Figure 2.") +
+  mapTheme()
+
+```
+
+```{r create vars_net}
+# net of variables of interest
+vars_net <- rbind(public_drunk, arson, disorderly, thefts, theft_from_veh, dui,
+                  # totalpop, medHHinc, under18, mfratio, munder25, funder25, under25, # don't know how to join these for now
+                  vacant_centroids, ppr_sites, septaStops, city_hall, schools) %>%
+  st_join(fishnet, join=st_within) %>%  # if the point from abandonCars is in the fishnet, assign the unique ID to that point
+  st_drop_geometry() %>%
+  group_by(uniqueID, Legend) %>%
+  summarize(count = n()) %>%
+  left_join(fishnet, ., by = "uniqueID") %>%  # add geometry back in
+  spread(Legend, count, fill=0) %>%  # fill in ones where fishnet was missing, count was NA with 0
+  dplyr::select(-`<NA>`) %>%
+  ungroup()
+
+
+# use something like code below (from lab 6) to create nearest neighbor counts
+# convenience to reduce length of function names.
+st_c    <- st_coordinates
+st_coid <- st_centroid
+
+vars_net_ccoid <- st_c(st_coid(vars_net))
+
+## create NN from abandoned cars
+vars_net <- vars_net %>%
+    mutate(public_drunk.nn = nn_function(vars_net_ccoid, st_c(public_drunk), 8),
+           arson.nn = nn_function(vars_net_ccoid, st_c(arson), 8),
+           disorderly.nn = nn_function(vars_net_ccoid, st_c(disorderly), 8),
+           thefts.nn = nn_function(vars_net_ccoid, st_c(thefts), 8),
+           theft_from_veh.nn = nn_function(vars_net_ccoid, st_c(theft_from_veh), 8),
+           dui.nn = nn_function(vars_net_ccoid, st_c(dui), 8),
+           vacant_centroids.nn = nn_function(vars_net_ccoid, st_c(vacant_centroids), 8),
+           ppr_sites.nn = nn_function(vars_net_ccoid, st_c(ppr_sites), 3),
+           septa_stops.nn = nn_function(vars_net_ccoid, st_c(septaStops), 2),
+           city_hall.nn = nn_function(vars_net_ccoid, st_c(city_hall), 1),
+           schools.nn = nn_function(vars_net_ccoid, st_c(schools), 8)) 
+
+```
+
+### Risk Factor Selection
+
+I started with various possible risk factors including counts of other incidents (public drunkenness, arson, theft, theft from vehicle, driving under the influence (DUI), and disorderly conduct), vacant lots and buildings, parks and other recreational sites, subway stops (MFL and BSL), and schools. I also included nearest neighbor features for these predictors using 1 nearest neighbor for City Hall (as the distance from the central business district or CBD), 2 nearest neighbors for subway stops, 3 nearest neighbors for parks and recreational sites, and 8 nearest neighbors for all other predictors.
+
+To narrow down the most powerful predictors of counts of vandalism, I plotted these predictors in a correlation matrix (see Figure 3). Though it's important to visualize how these predictors relate to one another, the most important aspect of this figure is shown in the bottom-most row: the correlation between count of vandalism (countVand) with all predictors (red signifies a positive correlation, while blue shows a negative one).
+
+```{r final_net}
+all_net <-
+  left_join(crime_net, st_drop_geometry(vars_net), by="uniqueID") 
+
+# might want to change above depending on model
+# trying things that stood out from model
+# final_net1 <- all_net %>% 
+#   dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,Vacants,dui.nn,
+#                 schools.nn,septa_stops.nn,ppr_sites.nn,geometry) %>% 
+#   rename(`Vacant Lots/Buildings` = Vacants, 
+#          `DUI (nn)` = dui.nn,
+#          `Schools (nn)` = schools.nn,
+#          `Subway Stops (nn)` = septa_stops.nn,
+#          `Parks and Rec (nn)` = ppr_sites.nn)
+
+# subset_net <- all_net %>% 
+#   dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,Vacants,dui.nn) %>% 
+#   rename(Thefts_from_Vehicle = `Theft from Vehicle`,
+#          Vacant_lots_buildings = Vacants,
+#          DUI.nn = dui.nn) %>% 
+#   st_centroid() %>%
+#   st_join(dplyr::select(nhoods, mapname)) %>%
+#   st_drop_geometry() %>%
+#   left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+#   st_sf() %>%
+#   na.omit()
+
+subset_net <- all_net %>% 
+  dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
+                thefts.nn,disorderly.nn) %>% 
+  rename(Thefts_from_Vehicle = `Theft from Vehicle`,
+         vacant_lots_buildings.nn = vacant_centroids.nn,
+         DUI.nn = dui.nn,
+         Thefts.nn = thefts.nn,
+         Disorderly_conduct.nn = disorderly.nn) %>% 
+  st_centroid() %>%
+  st_join(dplyr::select(nhoods, mapname)) %>%
+  st_drop_geometry() %>%
+  left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+  st_sf() %>%
+  na.omit()
+
+```
+
+#### Figure 3. Correlation Matrix of all possible risk factors
+
+```{r fig3/correlation matrix}
+# making this moreso to see which would actually be good predictors
+for_cormat <- all_net %>% st_drop_geometry() %>% 
+  # dplyr::select(countVand,Arson,arson.nn,`City Hall`,city_hall.nn,`Disorderly Conduct`,disorderly.nn, 
+  #               `DRIVING UNDER THE INFLUENCE`,dui.nn,`Parks and Rec`,ppr_sites.nn,`Public Drunkenness`,
+  #               public_drunk.nn,Schools,schools.nn,`Subway Stops`,septa_stops.nn,`Theft from Vehicle`,
+  #               theft_from_veh.nn,Thefts,thefts.nn,Vacants,vacant_centroids.nn)
+  dplyr::select(-c(uniqueID,cvID)) %>% 
+  rename(DUI = `DRIVING UNDER THE INFLUENCE`)
+
+ggcorrplot(
+  round(cor(for_cormat), 1), 
+  # method = "circle",
+  p.mat = cor_pmat(for_cormat),
+  colors = c("#4b2875", "white", "#9c1339"),
+  type="lower",
+  insig = "blank",
+  digits = 4,
+  lab = T, lab_size = 2) +  
+    labs(title = "Correlation",
+         caption = "Figure 3.") 
+
+# strong pred to keep: 
+# arson/arson.nn, theft from veh, vacants/vacant.nn, dui.nn
+# schools.nn, septa_stops.nn, ppr.nn, thefts/thefts.nn, disorderly.nn, 
+
+```
+
+### Spatial Process of Vandalism
+
+Another interesting feature to add to the model is one that can help us define the spatial process of vandalism in Philadelphia. One tool to examine spatial process is local Moran's *I*, which helps us understand whether the vandalism count at a certain location is randomly distributed or clustered relative to its immediate neighbors.
+
+### Models
+
+Since the outcome we are interested in is a count or sum of vandalism incidents, I use a Poisson regression model to estimate the outcome. I created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process (I ultimately only kept the model with both risk factors and spatial process).
+
+### Validation
+
+To assess the validity of my models I look at the accuracy (how accurate are my predictions in the set that the models are trained on?) and more importantly, generalizability (can I predict counts of vandalism across different neighborhoods? For another year?). 
+
+1.  Accuracy
+
+To assess accuracy of my models, I examined the mean absolute error (MAE; where error = predicted value - observed value) in the dataset containing vandalism incidents for 2021 -- the same data we used to train the model. 
+
+2.  Generalizability
+
+The most important validity measure of a geospatial risk prediction model is the generalizability as we want to be able to train a model and predict future outcomes, in our case counts of vandalism. I use random k-fold (with k ~ 100) cross validation as well as ‘Leave-one-group-out’ cross-validation (LOGO-CV) to assess model generalizability. LOGO-CV helps us assess model generalizability across neighborhoods. I also predict vandalism risk scores for the following year (2022) to assess whether the model generalizes across time using the 2021 kernel density.
+
+## Results
+
+### Visualizing Risk factors and Local Moran's *I*
+
+After iteratively testing various combinations of risk factors, my final models were made with counts of Arson and of thefts from a vehicle, in addition to the average distance to the eight nearest neighboring incidents of DUIs, thefts, disorderely conduct, and vacant lots and buildings. Figure 4 maps these risk factors on the same fishnet as we saw in figure 2. Counts of arson seem follow similar patterns to the counts of vandalism in where they cluster, while the counts of thefts from vehicle differ a little bit more from that of vandalism aside from the clustering in the central region of Philadelphia. In the remaining four plots, we see that the distance from these other incidents increases as we get further away from hot spots of counts of vandalism, informing us that these predictors are negatively correlated to counts of vandalism.
+
+#### Figure 4. Risk Factors in final model
+
+```{r fig4/small mult map, fig.height=15}
+vars_net.long <- gather(subset_net %>% dplyr::select(-countVand),
+                        variable, value, -geometry, -uniqueID, -cvID, -mapname)
+
+vars <- unique(vars_net.long$variable)
+varList <- list()
+
+for(i in vars){
+  varList[[i]] <- 
+    ggplot() +
+      geom_sf(data = filter(vars_net.long, variable == i),aes(fill = value), colour=NA) +
+      scale_fill_viridis(name="") +
+      labs(title=i) +
+      mapTheme(title_size = 14) + theme(legend.position="bottom")}
+
+do.call(grid.arrange,c(varList, ncol = 2, top = "Risk Factors for Vandalism (on fishnet)", bottom = "Figure 4."))
+```
+
+In figure 5, I include a map of counts of vandalism as a reference along with a map of local Moran's *I* values (with higher values indicating clustering), a map of *p*-values of the local Moran's *I* values (with lower values indicating significant clustering), and a map of significant (*p* \< 0.001) hotspots, or places with high counts of vandalism. The map of local Moran's *I* values looks very similar to that of vandalism count, and the map of significant hotspots confirms that this local clustering we see (and that we saw previously in the density map in figure 1) is significant. We can further confirm that vandalism does not happen in a vacuum. There are indeed conditions that make certain places ideal spots for vandalization more than others. As we are constantly reminded by Waldo Tobler, places that are closer together are more related to each other, helping us explain this clustering phenomenon.
+
+#### Figure 5. Adding indicators of significant spatial processes
+```{r fig 5/small mult map local morans i, fig.height=10}
+final_net.nb <- poly2nb(as_Spatial(subset_net), queen=TRUE)
+final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE) # turn neighborhood weights into list of weights
+
+
+local_morans <- localmoran(subset_net$countVand, final_net.weights, zero.policy=TRUE) %>%
+  as.data.frame() # Ii moran's I at ith cell, Ei expected/mean from neighbors
+
+# join local Moran's I results to fishnet
+final_net.localMorans <- 
+  cbind(local_morans, as.data.frame(subset_net)) %>% 
+  st_sf() %>%
+  dplyr::select(`Vandalism Count` = countVand, 
+                `Local Morans I` = Ii, 
+                `P Value` = `Pr(z != E(Ii))`) %>%
+  mutate(`Significant Hotspots` = ifelse(`P Value` <= 0.001, 1, 0)) %>%
+  gather(variable, value, -geometry)
+
+# now plot
+vars <- unique(final_net.localMorans$variable)
+varList <- list()
+
+for(i in vars){
+  varList[[i]] <- 
+    ggplot() +
+      geom_sf(data = filter(final_net.localMorans, variable == i),aes(fill = value), colour=NA) +
+      scale_fill_viridis(name="") +
+      labs(title=i) +
+      mapTheme(title_size = 14) + theme(legend.position="bottom")}
+
+do.call(grid.arrange,c(varList, ncol = 2, top = "Local Moran's I Statistics for Vandalism in Philadelphia", 
+                       bottom = "Figure 5."))
+
+final_net <-
+  subset_net %>% 
+  mutate(vandalism.isSig = 
+           ifelse(localmoran(subset_net$countVand, 
+                             final_net.weights)[,5] <= 0.0000001, 1, 0)) %>%
+  mutate(vandalism.isSig.dist = 
+           nn_function(st_coordinates(st_centroid(subset_net)),
+                       st_coordinates(st_centroid(
+                         filter(subset_net, vandalism.isSig == 1))), 1))
+
+```
+
+I also examined the correlation between the vandalism count and risk factors + spatial process features more closely via scatterplots (see figure 6). Theft from vehicle (count) is the predictor with the highest correlation with vandalism (correlation coefficient of 0.62), though we can see that vandalism count becomes less predictable for locations with high counts of thefts from vehicle. As well, we see a sharp decrease in vandalism count after a certain threshold for all the distance-related variables. This is most evident in the "Thefts.nn" plot where the vandalism count is very high at locations that are between 0-1000 ft (average) away from the nearest incidents of theft, but once the location is over 1000ft away, there are close to zero incidents of vandalism.  
+
+#### Figure 6. Scatterplots of Risk Factors
+```{r fig6/small mult scatter, fig.height=16}
+# from book
+
+correlation.long <-
+  st_drop_geometry(final_net) %>%
+    dplyr::select(-uniqueID, -cvID, -mapname) %>%
+    gather(variable, value, -countVand)
+
+correlation.cor <-
+  correlation.long %>%
+    group_by(variable) %>%
+    summarize(correlation = cor(value, countVand, use = "complete.obs"))
+    
+ggplot(correlation.long, aes(value, countVand)) +
+  geom_point(size = 0.1) +
+  geom_text(data = correlation.cor, aes(label = paste("r =", round(correlation, 2))),
+            x=-Inf, y=Inf, vjust = 1.5, hjust = -.1) +
+  geom_smooth(method = "lm", se = FALSE, colour = "black") +
+  facet_wrap(~variable, ncol = 2, scales = "free") +
+  labs(title = "Vandalism count as a function of risk factors",
+       caption = "Figure 6.") +
+  plotTheme(title_size = 14)
+```
+
+Although a select few locations have a vandalism count of over 60, most grid squares in the Philadelphia fishnet do not have any counts of vandalism -- more evidence of clustering in vandalism count (see figure 7). 
+
+#### Figure 7, Distribution of Vandalism count
+```{r fig7/hist}
+final_net %>% ggplot(aes(x = countVand)) +
+  geom_histogram(bins = 66) +
+  theme_minimal() +
+  labs(title = "Vandalism Distribution",
+       x = "Incidents of Vandalism", y = "Count",
+       caption = "Figure 7.")
+```
+
+```{r models, results='hide'}
+# just risk factors
+# reg.vars <- c("Arson", "Thefts_from_Vehicle", "vacant_lots_buildings.nn", "DUI.nn",
+#               "Thefts.nn", "Disorderly_conduct.nn")
+# 
+# ## RUN REGRESSIONS
+# reg.CV <- crossValidate(
+#   dataset = final_net,
+#   id = "cvID",                           
+#   dependentVariable = "countVand",
+#   indVariables = reg.vars) %>% 
+#     mutate(error = countVand - Prediction)
+# 
+# # MAE
+# reg.MAE <- mean(abs(reg.CV$error)) # 3.730237
+
+
+# with local Moran's I spatial process features
+reg.sp.vars <- c("Arson", "Thefts_from_Vehicle", "vacant_lots_buildings.nn", "DUI.nn",
+                 "Thefts.nn", "Disorderly_conduct.nn","vandalism.isSig", "vandalism.isSig.dist")
+
+## RUN REGRESSIONS
+reg.spatialCV <- crossValidate(
+  dataset = final_net,
+  id = "cvID",                           
+  dependentVariable = "countVand",
+  indVariables = reg.sp.vars) %>% 
+    dplyr::select(cvID, countVand, Prediction, geometry)
+    # mutate(error = countVand - Prediction)
+
+# MAE
+# reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # 3.63178 
+
+
+# adding neighborhood for LOGO CV, risk factors only
+# reg.logoCV <- crossValidate(
+#   dataset = final_net,
+#   id = "mapname",                           
+#   dependentVariable = "countVand",
+#   indVariables = reg.vars) %>% 
+#     mutate(error = countVand - Prediction)
+# 
+# # MAE
+# reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 3.742847
+
+
+# adding neighborhood for LOGO CV, risk factors + spatial process
+reg.logo.spatialCV <- crossValidate(
+  dataset = final_net,
+  id = "mapname",                           
+  dependentVariable = "countVand",
+  indVariables = reg.sp.vars) %>% 
+    dplyr::select(cvID = mapname, countVand, Prediction, geometry)
+    # mutate(error = countVand - Prediction)
+
+# MAE
+# reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 3.651649
+
+
+```
+
+### Model Selection 
+
+As mentioned in the Methods section, I kept both risk factors and spatial process as independent variables in my model as this model had lower values of error across all cross validation methods.
+
+### Cross Validation
+
+Random k-fold cross validation (with k being around 100) shows us that our model errors (measured by MAE) only range from 0-6 counts of vandalism, as seen in both figures 8 and 9. On the other hand, the Spatial LOGO-CV shows us that our model predictions are mostly accurate with low error, but also that our model results in some very high errors for certain neighborhoods. It is important to remember here that while vandalism incident reports may suffer from selection bias, the other features we used to predict vandalism also suffer from selection bias. Communities have varying attitudes towards various crimes and whether they should report them or not, as well as how severe a crime should be in order to warrant an incident report. This may account for the high errors we see in the Spatial LOGO-CV map in figure 8.
+
+#### Figure 8. Map of Model Errors
+```{r fig8/small mult map errors}
+reg.summary <- rbind(
+  mutate(reg.spatialCV,
+         Error = Prediction - countVand,
+         Regression = "Random k-fold CV"),
+  mutate(reg.logo.spatialCV, 
+         Error = Prediction - countVand,
+         Regression = "Spatial LOGO-CV")) %>%
+    st_sf() 
+
+error_by_reg_and_fold <- 
+  reg.summary %>%
+    group_by(Regression, cvID) %>% 
+    summarize(Mean_Error = mean(Prediction - countVand, na.rm = T),
+              MAE        = mean(abs(Mean_Error), na.rm = T),
+              SD_MAE     = mean(abs(Mean_Error), na.rm = T)) %>%
+  ungroup()
+
+# make map
+error_by_reg_and_fold %>%
+  ggplot() +
+    geom_sf(aes(fill = MAE)) +
+    facet_wrap(~Regression) +
+    scale_fill_viridis() +
+    labs(title = "Errors by Cross Validation method",
+       caption = "Figure 8.") +
+    mapTheme(title_size = 14) + theme(legend.position="bottom")
+
+```
+
+#### Figure 9. Bar Plots of Error
+```{r fig9/bar plots of MAE}
+error_by_reg_and_fold %>%
+  ggplot(aes(MAE)) + 
+    geom_histogram(bins = 30, colour="black", fill = "#FDE725FF") +
+    facet_wrap(~Regression) +  
+    geom_vline(xintercept = 0) + scale_x_continuous(breaks = seq(0, 30, by = 2)) + 
+    labs(title="Distribution of MAE", subtitle = "k-fold cross validation vs. LOGO-CV",
+         x="Mean Absolute Error",     y="Count",
+         caption = "Figure 9.") +
+    plotTheme(title_size = 14) + theme(legend.position="bottom")
+
+```
+
+Due to this higher variability in errors in the LOGO-CV method, we see that the mean MAE for this method is 2.91 (SD 3.73), while that for the k-fold CV method is 1.20 (SD 1.02) as seen in Table 1. Since we saw the 
+
+#### Table 1. Summary of Regressions
+```{r table1/MAE and SD}
+st_drop_geometry(error_by_reg_and_fold) %>%
+  group_by(Regression) %>% 
+    summarize(`Mean MAE` = round(mean(MAE), 2),
+              `SD MAE` = round(sd(MAE), 2)) %>%
+  kable(caption = "Table 1: Summary of Regressions") %>%
+  kable_styling("striped", full_width = F) %>% 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+```
+
+### Racial Context
+
+In order to assess if the model generalizes to different neighborhood contexts, I specifically tested whether the model generalizes to a racial context. Using 2021 US Census data, I defined a neighborhood to be "Majority White" if over 50% of the population was White, and "Majority non-White" otherwise. 
+
+Both cross validation methods showed similar results of the model overpredicting the amount of vandalism in majority White neighborhoods and underpredicting in majority non-White neighborhoods. 
+
+#### Table 2. Racial Context
+```{r table2/raw errors race}
+RaceContext <- tract21 %>% dplyr::select(GEOID,TotalPop,RaceContext,geometry) %>% .[nhoods,]
+
+reg.summary %>% 
+  st_centroid() %>%
+  st_join(tract21 %>% dplyr::select(RaceContext, geometry)) %>%
+  na.omit() %>%
+  st_drop_geometry() %>%
+  group_by(Regression, RaceContext) %>%
+  summarize(mean.Error = mean(Error, na.rm = T)) %>%
+  spread(RaceContext, mean.Error) %>%
+  kable(caption = "Table 2. Mean Error by Neighborhood Racial Context") %>%
+  kable_styling("striped", full_width = F) %>% 
+  kable_classic(html_font = "Cambria")
+
+```
+
+### Kernel Density and Future Predictions
+
+Finally, I examined the kernel density of 2021 vandalism counts in Philadelphia and tested whether this model generalizes to the vandalism incident report patterns of 2022. The risk categories, from 1st in purple to 5th in yellow are ordered from least to most risk of vandalism.
+
+Figure 10 helps us visualize this analysis. The risk prediction map looks very similar to that of the kernel density, with most of the highest risk categories overlapping across the two maps. The risk prediction map shows slight improvements when it comes to areas of low risk that are surrounded by areas of higher risk. It is a bit difficult to see in figure 10, but the risk prediction map has more regions marked as being in the 1st risk category along the edges of the hotspots that have little to no points (observed vandalism incidents) in them, meaning that this model is able to predict areas of low risk more accurately. That being said, there are areas of Philadelphia that neither the kernel density nor risk predictions map capture well.
+
+#### Figure 10. Comparison of Kernel Density and Risk Predictions
+```{r fig10/kernel density map, results='hide', fig.width=10, fig.height=10}
+# kernel density
+vand_ppp <- as.ppp(st_coordinates(vandalism), W = st_bbox(final_net))
+vand_KD.1000 <- spatstat.explore::density.ppp(vand_ppp, 1000)
+vand_KD.1500 <- spatstat.explore::density.ppp(vand_ppp, 1500)
+vand_KD.2000 <- spatstat.explore::density.ppp(vand_ppp, 2000)
+vand_KD.df <- rbind(
+  mutate(data.frame(rasterToPoints(mask(raster(vand_KD.1000), as(nhoods, 'Spatial')))), Legend = "1000 Ft."),
+  mutate(data.frame(rasterToPoints(mask(raster(vand_KD.1500), as(nhoods, 'Spatial')))), Legend = "1500 Ft."),
+  mutate(data.frame(rasterToPoints(mask(raster(vand_KD.2000), as(nhoods, 'Spatial')))), Legend = "2000 Ft.")) 
+
+vand_KD.df$Legend <- factor(vand_KD.df$Legend, levels = c("1000 Ft.", "1500 Ft.", "2000 Ft."))
+
+# ggplot(data=vand_KD.df, aes(x=x, y=y)) +
+#   geom_raster(aes(fill=layer)) + 
+#   facet_wrap(~Legend) +
+#   coord_sf(crs=st_crs(final_net)) + 
+#   scale_fill_viridis(name="Density") +
+#   labs(title = "Kernel density with 3 different search radii") +
+#   mapTheme(title_size = 14)
+
+
+# as.data.frame(vand_KD.1000) %>%
+#   st_as_sf(coords = c("x", "y"), crs = st_crs(final_net)) %>%
+#   aggregate(., final_net, mean) %>%
+#    ggplot() +
+#      geom_sf(aes(fill=value)) +
+#      geom_sf(data = sample_n(vandalism, 1500), size = .5) +
+#      scale_fill_viridis(name = "Density") +
+#      labs(title = "Kernel density of 2021 Vandalism Incidents") +
+#      mapTheme(title_size = 14)
+
+
+# download data from 2022
+incidents22 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_22/incidents_part1_part2.shp") %>% 
+  st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+
+# filter to only keep vandalism incidents
+vandalism22 <- incidents21 %>% filter(Legend == "Vandalism/Criminal Mischief") %>% 
+  .[fishnet,]
+
+
+# from lab
+vand_KDE_sum <- as.data.frame(vand_KD.1000) %>%
+  st_as_sf(coords = c("x", "y"), crs = st_crs(final_net)) %>%
+  aggregate(., final_net, mean) 
+kde_breaks <- classIntervals(vand_KDE_sum$value, 
+                             n = 5, "fisher")
+vand_KDE_sf <- vand_KDE_sum %>%
+  mutate(label = "Kernel Density",
+         Risk_Category = classInt::findCols(kde_breaks),
+         Risk_Category = case_when(
+           Risk_Category == 5 ~ "5th",
+           Risk_Category == 4 ~ "4th",
+           Risk_Category == 3 ~ "3rd",
+           Risk_Category == 2 ~ "2nd",
+           Risk_Category == 1 ~ "1st")) %>%
+  cbind(
+    aggregate(
+      dplyr::select(vandalism22) %>% mutate(vandCount = 1), ., sum) %>%
+    mutate(vandCount = replace_na(vandCount, 0))) %>%
+  dplyr::select(label, Risk_Category, vandCount)
+
+
+ml_breaks <- classIntervals(reg.spatialCV$Prediction, 
+                             n = 5, "fisher")
+vand_risk_sf <-
+  reg.spatialCV %>%
+  mutate(label = "Risk Predictions",
+         Risk_Category =classInt::findCols(ml_breaks),
+         Risk_Category = case_when(
+           Risk_Category == 5 ~ "5th",
+           Risk_Category == 4 ~ "4th",
+           Risk_Category == 3 ~ "3rd",
+           Risk_Category == 2 ~ "2nd",
+           Risk_Category == 1 ~ "1st")) %>%
+  cbind(
+    aggregate(
+      dplyr::select(vandalism22) %>% mutate(vandCount = 1), ., sum) %>%
+      mutate(vandCount = replace_na(vandCount, 0))) %>%
+  dplyr::select(label,Risk_Category, vandCount)
+
+
+rbind(vand_KDE_sf, vand_risk_sf) %>%
+  na.omit() %>%
+  gather(Variable, Value, -label, -Risk_Category, -geometry) %>%
+  ggplot() +
+    geom_sf(aes(fill = Risk_Category), colour = NA) +
+    geom_sf(data = sample_n(vandalism22, 3000), size = .25, colour = "black") +
+    facet_wrap(~label, ) +
+    scale_fill_viridis(discrete = TRUE) +
+    labs(title="Comparison of Kernel Density and Risk Predictions",
+         subtitle="2021 Vandalism; 2022 Vandalism risk predictions",
+         caption = "Figure 10.") +
+    theme(legend.position="bottom") +
+    mapTheme(title_size = 14)
+
+```
+
+Though hard to see on figure 10, the risk prediction model has less regions of Philadelphia categorized as the 5th, or most high risk of vandalism incidents while having more regions categorized as the 3rd risk category compared to the kernel density model (see figure 11). 
+
+#### Figure 11.
+```{r fig11/bar comparison}
+rbind(vand_KDE_sf, vand_risk_sf) %>%
+  st_drop_geometry() %>%
+  na.omit() %>%
+  gather(Variable, Value, -label, -Risk_Category) %>%
+  group_by(label, Risk_Category) %>%
+  summarize(countVand = sum(Value)) %>%
+  ungroup() %>%
+  group_by(label) %>%
+  mutate(Pcnt_of_test_set_crimes = countVand / sum(countVand)) %>%
+    ggplot(aes(Risk_Category,Pcnt_of_test_set_crimes)) +
+      geom_bar(aes(fill=label), position="dodge", stat="identity") +
+      scale_fill_viridis(discrete = TRUE, name = "Model") +
+      labs(title = "Risk prediction vs. Kernel density, 2022 Vandalism Incidents",
+           y = "% of Test Set Vandalism Incidents (per model)",
+           x = "Risk Category",
+           caption = "Figure 11.") +
+  theme_bw() +
+      theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
+
+```
+
+## Conclusion
+
+In conclusion, I do not recommend the use of this model at this time due to high errors. When most areas of Philadelphia have an observed vandalism count of zero (see figure 7), a mean MAE of 1 or 2 is telling that this model needs improvement. We saw this level of error in both cross validation methods as well as in the racial context, which leads me to think that we are missing some key risk factors. 
+
+Though we saw that our model does slightly better than a simple hotspot analysis, it would be useful and interesting to add more risk factors such as the percent of population that is under 25 years of age, male to female ratio, and median household income just to name a few. A unique combination of these new risk factors and ones considered earlier in this analysis may lead to a better model. In addition, stratifying the severity and cost of these incidents of vandalism would improve the models by allowing us to see how the risks of vandalism incidents of varying cost and severity may have different relationships with risk factors. Hopefully, this would help us tease out some of the effects of selection bias that we saw in my current model, leading to a more accurate and generalizable model.
+
+

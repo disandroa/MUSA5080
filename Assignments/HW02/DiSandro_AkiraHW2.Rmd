@@ -1,0 +1,503 @@
+---
+title: "Analysis of Transit Oriented Development in Washington, D.C. (in 2009 and 2019)"
+author: "Akira Di Sandro"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Motivation
+
+It's important for cities to have reasonably accessible modes of transportation in order to access resources spread across the city. Public transportation allows residents of a city to get from point A to point B in a city without walking a very long distance, spending too much money on ride-share apps, or having to deal with traffic and other problems that arise with driving in a city. Beyond individual benefits, public transportation can improve fuel efficiency and reduce air pollution while improving equity, safety and increasing physical activity in the community ([Remix](https://www.remix.com/blog/8-benefits-of-public-transportation); [U.S. Department of Transportation](https://www.transportation.gov/mission/health/Expand-Public-Transportation-Systems-and-Offer-Incentives)).
+
+The importance and convenience of public transportation begs the question, are people willing to pay more to live in a location relatively close to a station? What may influence people's decisions to live close to a station? How do variables that influence one's decision to live close to a station change over time?
+
+In the following analyses, we attempt to answer these questions for Washington, D.C. and its metro system and explore differences between two timepoints: 2009 and 2019. 
+
+### Set-up for Analyses
+
+```{r setup_packages, warning = FALSE, message = FALSE}
+# Load Libraries
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(kableExtra)
+library(RColorBrewer)
+library(ggpubr)
+library(readr)
+
+options(scipen=999) # specifying that we don't want scientific notation
+options(tigris_class = "sf")
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+# sourcing functions from functions.r on github
+
+mypalette1 <- colorRampPalette(c("#fcb39f","#7a0728"))(5)
+mypalette2 <- colorRampPalette(c("#fced9f","#7a6507"))(5)
+mypalette3 <- colorRampPalette(c("#9fdafc","#07317a"))(5)
+mypalette4 <- colorRampPalette(c("#da9ffc","#4c077a"))(5)
+
+```
+
+```{r load_key, warning = FALSE, eval = FALSE}
+api <- read_file("~/Documents/MUSA5080/api_key.txt") %>% 
+  gsub("[^[:alnum:] ]", "", .)
+census_api_key(api, overwrite = TRUE, install = T)
+```
+
+### Washington, D.C. Census Data for 2009 and 2019
+
+List all census tract variables to decide which of them are of interest to us.
+```{r acs_variables, message=FALSE, warning=FALSE}
+# to delete when finalizing
+acs_variable_list.2009 <- load_variables(2009, #year
+                                         "acs5", #five year ACS estimates
+                                         cache = TRUE)
+
+acs_variable_list.2019 <- load_variables(2019, #year
+                                         "acs5", #five year ACS estimates
+                                         cache = TRUE)
+```
+
+The four main census variables we are interested in are Total Population (B25026_001E = TotalPop), Median Income (B19013_001E = MedHHIncome), Rent (B25058_001E = MedRent), and Education ((FemaleBachelors + MaleBachelors) / TotalPop = PctBachelors) for both 2009 and 2019. We will be looking at how these variables change from 2009 to 2019 and also see how they differ between Transit Oriented Development (TOD) vs non-TOD regions of Washington, D.C.
+
+```{r define_tracts, results='hide', message=FALSE, warning=FALSE}
+tracts09 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B15001_050E","B15001_009E","B19013_001E","B25058_001E"), 
+          year = 2009, state = 11, 
+          geometry = T, output = "wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         year = "2009") %>%
+  dplyr::select(-FemaleBachelors, -MaleBachelors) 
+
+tracts19 <- 
+  get_acs(geography = "tract", 
+          variables = c("B25026_001E","B15001_050E","B15001_009E","B19013_001E","B25058_001E"), 
+          year = 2019, state = 11,
+          geometry = T, output = "wide") %>%
+  st_transform('ESRI:102728') %>%
+  rename(TotalPop = B25026_001E, 
+         FemaleBachelors = B15001_050E, 
+         MaleBachelors = B15001_009E,
+         MedHHInc = B19013_001E, 
+         MedRent = B25058_001E) %>%
+  dplyr::select(-NAME, -starts_with("B")) %>%
+  mutate(pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         year = "2019") %>%
+  dplyr::select(-FemaleBachelors, -MaleBachelors) 
+```
+
+Combine 2009 and 2019 tracts into allTracts.
+
+```{r alltracts, message=FALSE, warning=FALSE}
+allTracts <- rbind(tracts09,tracts19)
+```
+
+
+### Wrangling Transit Open Data
+
+Load D.C. metro station and line data from [opendata.dc.gov](https://opendata.dc.gov/datasets/DCGIS::metro-stations-in-dc/about).
+
+```{r trasitdata, results='hide', message=FALSE, warning=FALSE}
+
+dc_metro <- st_read("https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Transportation_Rail_Bus_WebMercator/MapServer/52/query?outFields=*&where=1%3D1&f=geojson")
+
+dc_lines <- st_read("https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Transportation_Rail_Bus_WebMercator/MapServer/106/query?outFields=*&where=1%3D1&f=geojson")
+
+DCStops <- dc_metro %>% select(NAME,LINE,geometry) %>% 
+  st_transform(st_crs(tracts19))  
+
+DCLines <- dc_lines %>% select(NAME,geometry) %>% 
+  st_transform(st_crs(tracts19))
+```
+
+We visualize the D.C. metro stops in Figure 1. Note that there are D.C. metro stops outside of D.C. Though the metro stops outside of D.C. are relatively close to those in the state of D.C., there are other factors that influence our variables of interest that may vary state by state. Since we are interested in investigating the difference between TOD and non-TOD areas within D.C., we are only focusing on D.C. metro stations within the state of D.C. for our analyses.
+
+```{r visualize_DCstops, message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = allTracts, color = "darkgrey") +
+  geom_sf(data=DCStops, color = "black", size= 2) +
+  geom_sf(data = dc_lines, aes(color = NAME)) +
+  scale_colour_manual(values = c("blue","green","orange","red","lightgrey","yellow")) +
+  labs(title = "D.C. Metro Stops",
+       subtitle = "Washington, D.C.",
+       caption = "Figure 1") +
+  mapTheme()
+
+```
+
+### Spatial Intersection of tracts and buffers
+
+```{r create_bufferdata, message=FALSE, warning=FALSE}
+# only keep the unioned buffer
+DCBuffer <- data.frame(st_union(st_buffer(DCStops, 2640))) %>% st_as_sf()
+```
+
+The three methods of finding TOD tracts and resulting TOD regions are plotted in Figure 2 (tracts are colored according to total population). 
+
+```{r three_methods, message=FALSE, warning=FALSE}
+clip <- 
+  st_intersection(DCBuffer, tracts19) %>%
+  dplyr::select(TotalPop) %>%
+  mutate(Selection_Type = "Clip")
+
+selection1 <- 
+  tracts19[DCBuffer,] %>%
+  dplyr::select(TotalPop) %>%
+  mutate(Selection_Type = "Spatial Selection")
+
+selectCentroids <-
+  st_centroid(tracts19)[DCBuffer,] %>%
+  st_drop_geometry() %>%
+  left_join(., dplyr::select(tracts19, GEOID), by = "GEOID") %>%
+  st_sf() %>%
+  dplyr::select(TotalPop) %>%
+  mutate(Selection_Type = "Select by Centroids")
+```
+
+```{r plotting_three_methods, message=FALSE, warning=FALSE}
+intersections <- rbind(clip, selection1, selectCentroids)
+
+ggplot() +
+  geom_sf(data=intersections, aes(fill = TotalPop)) +
+  geom_sf(data=DCStops, show.legend = "point") +
+  scale_fill_viridis_c() +
+  facet_wrap(~Selection_Type) + 
+  labs(title = "Three methods of Defining TOD tracts",
+       subtitle = "Washihngton, D.C.",
+       caption = "Figure 2") +
+  mapTheme()
+```
+
+The "clip" method looks visually pleasing at first glance because it only includes the areas of various tracts that are within the half-mile buffer from each station. Unfortunately, the tract data is summary data for the whole tract and we cannot simply adjust our census variables of interest (which are aggregated for the whole tract) to only represent the chunks of tracts that fit exactly within a half-mile radius from each station.
+
+The "spatial selection" method over-selects tracts. It selects tracts regardless of whether 95% or 0.5% of the tract is within the half-mile radius of a station. 
+
+The "select by centroid" method is the best buffer definition method for our case because if the centroid of a tract is within the half-mile radius of a station, we can be (for the most part) assume that a significant amount of that tract will be contained in that radius. Therefore, we will continue with the centroid method from here on out.
+
+Moving forward, we define a D.C. census tract as TOD if its centroid is within a half mile from a metro stop. 
+
+#### Indicator maps
+
+Here, we take a deeper look at the spacial and temporal difference in four census tract variables of interest with the purpose of exploring the question, "Do households value transit-rich neighborhoods compared to others?" As a reminder, the four census variables we are interested in are Total Population (in occupied housing units), Education (measured by the percentage of people 18 years or older with Bachelor's degrees), Median Household Income (adjusted for inflation), and Median Rent (adjusted for inflation). We want to see how these four variables change from 2009 to 2019 and differences between TOD tracts and non-TOD tracts. 
+
+In each of the four plots below, the half-mile buffer is highlighted in green, showing us which of the Washington, D.C. tracts fall in the TOD category. Though the colors used for each plot is different, the lighter color always represent the lower side of a scale while the darker color represent the higher side of a scale.
+
+```{r adjust4inflation, message=FALSE, warning=FALSE}
+allTracts.group <- 
+  rbind(
+    st_centroid(allTracts)[DCBuffer,] %>%
+      st_drop_geometry() %>%
+      left_join(allTracts) %>%
+      st_sf() %>%
+      mutate(TOD = "TOD"),
+    st_centroid(allTracts)[DCBuffer, op = st_disjoint] %>%
+      st_drop_geometry() %>%
+      left_join(allTracts) %>%
+      st_sf() %>%
+      mutate(TOD = "Non-TOD")) %>%
+  mutate(MedRent.inf = ifelse(year == "2009", MedRent * 1.19, MedRent),
+         MedHHInc.inf = ifelse(year == "2009", MedHHInc * 1.19, MedHHInc)) # $1 in 2009 = $1.19 in 2019
+
+```
+
+In Figure 3, we look at Total Population in D.C. census tracts. In general, the total population seems to have increased in D.C., except for the central areas (which makes sense since these are not residential areas). It is difficult to interpret from this figure what the differences in total population are between TOD and non-TOD tracts. We will touch on this shortly.
+
+```{r ggTotalPop, message=FALSE, warning=FALSE}
+ggplot(allTracts.group) +
+  geom_sf(data = st_union(tracts19)) +
+    geom_sf(aes(fill = q5(TotalPop))) +
+    geom_sf(data = DCBuffer, fill = "transparent", color = "#15ff00")+
+    scale_fill_manual(values = mypalette1,
+                      labels = qBr(allTracts.group, "TotalPop"),
+                      name = "Population\n(Quintile Breaks)") +
+    labs(title = "Total Population 2009-2019", 
+         subtitle = "Total Population in Occupied Housing Units; \n green border denotes areas close to subway stations",
+         caption = "Figure 3") +
+    facet_wrap(~year) +
+    mapTheme() + 
+    theme(plot.title = element_text(size=15))
+```
+
+In Figure 4, we look at Education in D.C. census tracts. The figure shows that the in 2009, tracts in the northern part of D.C. had higher percentages of adults with Bachelor's degrees compared to the southern tracts. In 2019, the central part of D.C. seems to have had higher percentages of adults with Bachelor's degrees. This central region is also a major part of TOD. We can be tempted to assume from this plot that from 2009 to 2019, the percentage of adults with Bachelor's degrees increased in TOD, but we can also see that there are higher percentages of adults with Bachelor's degrees Non-TOD tracts as well. We will be able to say more on this by looking at summary statistics. (Note that percentages are presented as decimals throughout this document, i.e. 0.001 = 0.1%)
+
+```{r ggpctBachelors, message=FALSE, warning=FALSE}
+# redefine qBr() to adjust rounding
+myqBr <- function(df, variable, rnd) {
+  if (missing(rnd)) {
+    as.character(quantile(round(df[[variable]],3),
+                          c(.01,.2,.4,.6,.8), na.rm=T))
+  } else if (rnd == FALSE | rnd == F) {
+    as.character(formatC(quantile(df[[variable]],
+                                  c(.01,.2,.4,.6,.8), na.rm=T),
+                         digits = 3))
+  }
+}
+
+# plot pctBachelors
+ggplot(allTracts.group) +      # NEED TO fix the legend so that the quintile actually shows decimal points
+  geom_sf(data = st_union(tracts19)) +
+    geom_sf(aes(fill = q5(pctBachelors))) +
+    geom_sf(data = DCBuffer, fill = "transparent", color = "#15ff00")+
+    scale_fill_manual(values = mypalette2,
+                      labels = myqBr(allTracts.group, "pctBachelors"),
+                      name = "Percent w \n(Quintile Breaks)") +
+    labs(title = "Percent of Population with a \nBachelor's Degree 2009-2019", 
+         subtitle = "Green border denotes areas close to subway stations",
+         caption = "Figure 4") +
+    facet_wrap(~year)+
+    mapTheme() + 
+    theme(plot.title = element_text(size=15))
+```
+
+In Figure 5, we look at Median Income in D.C. census tracts. In 2009, median income was higher in the northwestern part of D.C. while this expands to the central part of D.C. in addition to the northwestern part in 2019. Similarly, to the previous two census variables, it's hard to tell how median income compares in TOD vs non-TOD areas and how this changes over time.
+
+```{r ggMedHHIncInf, message=FALSE, warning=FALSE}
+ggplot(allTracts.group) +
+  geom_sf(data = st_union(tracts19)) +
+    geom_sf(aes(fill = q5(MedHHInc.inf))) +
+    geom_sf(data = DCBuffer, fill = "transparent", color = "#15ff00")+
+    scale_fill_manual(values = mypalette3,
+                      labels = qBr(allTracts.group, "MedHHInc.inf"),
+                      name = "Income\n(Quintile Breaks)") +
+    labs(title = "Median Household Income 2009-2019", 
+         subtitle = "Real Dollars (2019); green border denotes areas close to subway stations",
+         caption = "Figure 5") +
+    facet_wrap(~year)+
+    mapTheme() + 
+    theme(plot.title = element_text(size=15))
+```
+
+In Figure 6, we look at Median Rent in D.C. census tracts. In 2009, the northwestern tracts as well as some in the central part and one tract in the southern part of D.C. have the highest rent. TOD vs. Non-TOD regions' rents look comparable at first glance. In 2019, we see in increase in rent in almost tracts (despite having adjusted the 2009 rent for inflation), but more interestingly, the TOD tracts have some of the highest rent. As with all previous census variables of interest, we need to look at numbers to make more clear interpretations of what temporal and spacial changes we see in this data.
+
+```{r ggMedRentInf, message=FALSE, warning=FALSE}
+ggplot(allTracts.group) +
+  geom_sf(data = st_union(tracts19)) +
+    geom_sf(aes(fill = q5(MedRent.inf))) +
+    geom_sf(data = DCBuffer, fill = "transparent", color = "#15ff00")+
+    scale_fill_manual(values = mypalette4,
+                      labels = qBr(allTracts.group, "MedRent.inf"),
+                      name = "Rent\n(Quintile Breaks)") +
+    labs(title = "Median Rent 2009-2019", 
+         subtitle = "Real Dollars (2019); green border denotes areas close to subway stations",
+         caption = "Figure 6") +
+    facet_wrap(~year)+
+    mapTheme() + 
+    theme(plot.title = element_text(size=15))
+```
+
+
+#### TOD Indicator Bar plot
+
+```{r define_summary, message=FALSE, warning=FALSE}
+allTracts.Summary <- 
+  st_drop_geometry(allTracts.group) %>%
+  group_by(year, TOD) %>%
+  summarize(Rent = mean(MedRent.inf, na.rm = T),
+            Population = mean(TotalPop, na.rm = T),
+            Percent_Bach = mean(pctBachelors, na.rm = T),
+            Income = mean(MedHHInc.inf, na.rm = T))
+```
+
+In Figure 7, we summarize the findings from figures 3 through 6 in a bar plot. Here, we plot the mean values of census variables (averaged over year and TOD/non-TOD). In general, regardless of TOD or non-TOD, total population, median income, and median rent increase from 2009 to 2019. More interestingly, in 2009 these three variables had comparable values between TOD and non-TOD, but we see a shift in 2019 where TOD regions are slightly more populated, and the population in TOD have higher median income and rent compared to that of non-TOD. On the other hand, the percentage of adults with Bachelor's degree is consistently higher in TOD tracts compared to non-TOD regardless of year, though the difference in this percentage does shrink a little bit from a 0.020% difference in 2009 to a 0.015% difference in 2019. 
+
+```{r allTracts_barplot, message=FALSE, warning=FALSE}
+allTracts.Summary %>%
+  gather(Variable, Value, -year, -TOD) %>%
+  mutate(Variable = ifelse(Variable == "Percent_Bach","% Bachelor's",Variable),
+         Variable = factor(Variable, levels = c("Population","% Bachelor's","Income","Rent"))) %>% 
+  ggplot(aes(year, Value, fill = TOD)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~Variable, scales = "free", ncol=4) +
+    scale_fill_manual(values = c("#fced9f", "#7a0728")) +
+    labs(title = "Indicator differences across time and space",
+         fill = "",
+         caption = "Figure 7") +
+    plotTheme() + theme(legend.position="bottom")
+```
+
+#### TOD Indicator Tables
+
+The table below summarizes findings from Figure 7 (bar plot). The advantage of this table is that we now see exact values of the variables of interest so that we can make more direct statements about the temporal and spacial changes in our data. 
+
+```{r summary_table, message=FALSE, warning=FALSE}
+allTracts.Summary %>%
+  unite(year.TOD, year, TOD, sep = ": ", remove = T) %>%
+  mutate(Rent = as.character(round(Rent,2)),
+         Population = round(Population,0),
+         Percent_Bach = round(Percent_Bach,3),
+         Income = round(Income,2)) %>% 
+  gather(Variable, Value, -year.TOD) %>%
+  spread(year.TOD, Value) %>%
+  kable(caption = "Table 1") %>%
+  kable_styling() %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  column_spec(1, width = "12em")
+
+```
+
+
+### Graduated Symbol Maps
+
+Now, let's focus on changes in population and rent of TOD from 2009 to 2019.
+
+```{r setup4grad, message=FALSE, warning=FALSE}
+# ununioned buffer
+ununioned <- st_buffer(DCStops, 2640) %>% 
+  mutate(ID = seq_along(geometry))
+
+# calculate centroid for each tract and year
+# join tract centroid to each stop where the tract is within .5 miles of the stop
+# calculate summary data for all tracts within .5 miles of each stop
+# adjust mean rent for inflation
+for_GradSym1 <- st_join(ununioned, st_centroid(allTracts)) %>%
+  group_by(NAME, year) %>%
+  summarize(AggPop = sum(TotalPop, na.rm = T),
+            meanRent = mean(MedRent, na.rm = T)) %>%
+  st_drop_geometry() %>%
+  mutate(meanRentInf = ifelse(year == "2009", meanRent*1.19, meanRent)) %>%
+  select(-meanRent)
+
+# join for_GradSym1 and geometry from dc_metro data
+for_GradSym2 <- inner_join(dc_metro %>% select(NAME,geometry), for_GradSym1, by = "NAME")
+
+```
+
+In Figure 8, we see the change in Total Population in the tracts within the half-mile buffer from each station. Across both years, we see that the population of TOD tracts in the center of D.C. are highest compared to other TOD tracts. We also see an increase in population for TOD tracts from 2009 to 2019.
+
+```{r gradMap_pop, message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = allTracts, fill = "#fced9f", color = "#7a6507") +
+  geom_sf(data = for_GradSym2 %>% select(-meanRentInf),
+          pch = 21,
+          aes(size = AggPop, fill = AggPop),
+          alpha = .8,
+          color = "#7a0728") +
+  facet_wrap(~year) +
+  labs(title = "Population of tracts within .5 miles of each Metro Stop",
+       subtitle = "D.C.",
+       size = "Total Population",
+       fill = "Total Population",
+       caption = "Figure 8") +
+  scale_size_continuous(range = c(1, 7),
+                        limits=c(5000, 25000), breaks=seq(5000, 25000, by = 5000),
+                        guide = "legend") +
+  scale_fill_gradient(low = "#fcb39f", high = "#7a0728",
+                      limits=c(5000, 25000), breaks=seq(5000, 25000, by = 5000),
+                      guide = "legend") +
+  mapTheme()
+```
+
+In Figure 9, we see the change in Median Rent in the tracts within the half-mile buffer from each station. We see the highest median rent along the western part of the red line as well as the central part of D.C. Similarly to population, median rent also seems to increase from 2009 to 2019, despite correcting the 2009 median rent for inflation. 
+
+```{r gradMap_rent, message=FALSE, warning=FALSE}
+ggplot() +
+  geom_sf(data = allTracts, fill = "#fced9f", color = "#7a6507") +
+  geom_sf(data = for_GradSym2 %>% select(-AggPop),
+          pch = 21,
+          aes(size = meanRentInf, fill = meanRentInf),
+          alpha = 0.8,
+          color = "#7a0728") +
+  facet_wrap(~year) +
+  labs(title = "Mean Rent of tracts within .5 miles of each Metro Stop",
+       subtitle = "D.C.; Real dollars (2019)",
+       size = "Mean Rent",
+       fill = "Mean Rent",
+       caption = "Figure 9") +
+  scale_size_continuous(range = c(1, 7),
+                        limits=c(500, 2500), breaks=seq(500, 2500, by = 500),
+                        guide = "legend") +
+  scale_fill_gradient(low = "#fcb39f", high = "#7a0728",
+                      limits=c(500, 2500), breaks=seq(500, 2500, by = 500),
+                      guide = "legend") +
+  mapTheme()
+```
+
+
+### Geom_lineplot
+
+We saw in Figure 9 that median rent increased in TOD from 2009 to 2019. In figures 6 and 7 as well as table 1, we saw that median rent was higher in TOD in both years, but that the difference between median rent in TOD vs. non-TOD increased in 2019. It makes us wonder, how does rent change as a function of distance to subway stations? Figure 10 below addresses this question.
+
+```{r geom_line, message=FALSE, warning=FALSE}
+DC_MRB <- multipleRingBuffer(st_union(DCStops),
+                             maxDistance = 26400,
+                             interval =  1056)
+
+twomilemark <- DC_MRB %>% filter(distance == 5280 * 2)
+
+ringsplot <- ggplot() +
+  geom_sf(data = DC_MRB) +
+  geom_sf(data = DCStops, size=1) +
+  geom_sf(data = st_union(allTracts), fill=NA, size=1.2) +
+  labs(title="0.2 mile buffers") +
+  mapTheme()
+
+# Russell's way (editing my code based off of Russell's)
+
+rent_by_buffer <- st_join(DC_MRB, st_centroid(drop_na(allTracts, MedRent)), left=TRUE) %>% # join GEOIDs to DC_MRB row that includes its centroid
+  group_by(distance, year) %>%
+  summarize(meanRent = mean(MedRent, na.rm = T)) %>%
+  st_drop_geometry() %>%
+  mutate(meanRentInf = ifelse(year == "2009", meanRent * 1.19, meanRent),
+         distance = distance / 5280) %>% 
+  filter(!is.na(year)) %>% 
+  select(distance, year, meanRentInf)
+
+ggplot(rent_by_buffer,aes(distance, meanRentInf, color = year)) +
+      geom_point(size = 3) +
+  geom_line(size = 2) +
+  labs(title = "Avg. Median Rent by Distance to Transit",
+       subtitle = "D.C.; Real Dollars",
+       x = "Distance to Nearest Transit Stop (miles)",
+       y = "Average Median Rent",
+       color = "Year",
+       caption = "Figure 10") +
+  scale_color_manual(values = c("2009" = "#fcb39f", "2019" = "#7a0728")) +
+  theme_minimal()
+
+```
+
+In Figure 10, we see that for both years and from zero to 1.6 miles from the metro stations, mean rent starts off high and exponentially decreases, with rent being much more expensive in 2019 compared to 2009. After around 1.8 miles from metro stations, the rent starts to shoot up before decreasing at 2.2 miles. Figure 11 below highlights the tracts included in the calculation of mean median rent. If we also look back at figure 6, we can see that the tracts highlighted in figure 11 generally have higher median rent, especially looking at where the highlighted buffer intersects with D.C. tracts in the northwestern and southwestern points of D.C. This buffer also extends outside of D.C. but we only calculate mean median rent from tracts within D.C., which may be a biased mean (due to the high rent tracts within D.C. in this area). 
+
+```{r twomileradius,, message=FALSE, warning=FALSE}
+# plot highlighting 2.0 miles from stations
+ggplot() +
+  geom_sf(data = DC_MRB) +
+  geom_sf(data = twomilemark, fill = "#fcb39f", color = "#7a0728") +
+  geom_sf(data = DCStops, size=1) +
+  geom_sf(data = st_union(allTracts), fill=NA, size=1.2) +
+  labs(title="0.2 mile buffers from D.C. Metro stops",
+       subtitle = "2.0 miles from stations highlighted",
+       caption = "Figure 11") +
+  mapTheme()
+```
+
+
+### Conclusions
+
+To sum our analyses up, we saw that in general, total population, median income, and median rent increased in D.C. from 2009 to 2019. Over time, the difference between these census variables in TOD vs non-TOD increased, with variables being higher in TOD (more people, higher income, and higher rent) even after adjusting for inflation. Percent of adults with Bachelor's degrees did not change much from 2009 to 2019 (other than a smaller difference between TOD and non-TOD in 2019), with the percentage being higher in TOD compared to non-TOD. We also saw that population and mean rent of tracts within a half mile from transit stops both increased from 2009 to 2019 in addition to rent starting off high closer to the transit stops and steadily decreasing up to 2 miles from transit stops for both years. 
+
+From this we can say that in 2009, there wasn't a willingness to pay to be in TOD in Washington, D.C. In 2009, there wasn't a big difference between population, median income, and median rent in TOD and non-TOD (though median income and median rent were slightly higher in TOD). Though, there was a difference in percent of adults with Bachelor's degrees between TOD and non-TOD with the percentage being higher in TOD. The range of this variable across D.C. is very limited (about 0% to 4%), making it look like there is a big difference between TOD and non-TOD, but this difference needs to be tested statistically to be sure of its significance.
+
+In 2019, people seem to be more willing to pay to be in TOD in Washington, D.C. Some factors influencing this decision could include gentrification and development in the central D.C. area which may lead to higher rent and more people with higher income seeking resources in this area because they are able to afford it. It seems that households value transit-rich neighborhoods compared to others, but our analyses do not give us the full scope of what's going on here. It would be interesting to conduct this analysis including all regions of the D.C. metro lines to see if we see this phenomena extending outside of the state of D.C. It would also allow us to have better estimates of how much rent changes as we move further away from transit stops which was unclear and incomplete in our analysis here.
+
+One note of caution as we interpret and draw conclusions from these analyses is that we used summary data for the whole tract regardless of how much of the tract was actually within the half mile buffer of transit stops. Due to the Modifiable Area Unit Problem, our estimates in these analyses maybe be off. In our analyses, we assume that there is a normal distribution of people throughout the tract, when in reality this may not be true. When looking at a census tract, the area that is actually included in the half mile buffer from a transit stop may have a very low proportion of the total population in that tract (with more people living outside of that buffer in this tract). If that's the case, we have very inaccurate estimates unless most tracts included in TOD have a significant portion of itself fully included in the half mile buffer from a transit stop. We can better improve this analysis if we had a more fine grain idea of what the distribution of people looks like within each tract.
+
+In addition, in D.C. there are some census tracts that have populations of 0 because they are non-residential areas. Regardless, these areas were still included as TOD if they satisfied our one rule for TOD of being within a half mile from a metro station. This may have lowered our estimates of census variables within TOD. In future analyses, one might want to consider dropping tracts with populations of 0 to remove this problem.
+
+Given the discussion of limitations of our analyses, it's clear that more research needs to be done before drawing accurate conclusions. We recommend the inclusion of more census variables, having a clearer idea of distribution of people within tracts, and removing tracts with populations of 0 for analyses. 
