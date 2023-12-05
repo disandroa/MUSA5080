@@ -83,6 +83,11 @@ library(gridExtra)
 library(QuantPsyc)
 library(rphl)
 library(geojsonR)
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+  
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+  
+options(scipen=999)
 }
 
 
@@ -100,6 +105,28 @@ library(geojsonR)
     mutate(UniqueID = row_number())
 }
 ## Permit Reading
+{
+  #philly permit data
+  dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+  # 
+  # # only keep new construction permits
+  newcon_permits <- dat_permit %>% 
+    filter(grepl("NEW CON|NEWCON",typeofwork)) %>% 
+    st_transform('ESRI:102728')
+  
+  # write out smaller geojson file
+  st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
+  
+  rm(dat_permit)
+  
+  newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson")
+  
+  # OPA housing permit data
+    # missing
+  }
+  
+
+
 {
   permits <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")%>%
     filter(.,typeofwork == "NEW CONSTRUCTION" & status == "COMPLETED"
@@ -156,22 +183,21 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
     st_transform(crs=2272)
 }
 {
-  Schoolnet <- dplyr::select(SchoolsPHL) %>% 
-    mutate(countSchool = 1) %>% 
-    aggregate(., fishnet, sum) %>%
-    mutate(countSchool = replace_na(countSchool, 0),
-           uniqueID = 1:n(),
-      #     cvID = sample(round(nrow(fishnet) / 24)
+    schoolDistNet <- fishnet %>%
+    mutate(
+      schools3nn = nn_function(st_coordinates(st_centroid(fishnet)),  st_coordinates(SchoolsPHL), k = 3)
     )
-  #)
 }
-
-# {
-#     schoolDistNet <- fishnet %>%
-#     mutate(
-#       schools1nn = nn_function(st_coordinates(fishnet),  st_coordinates(SchoolsPHL), k = 1))
-# }
-#   
+{
+  SchoolDistNH <- schoolDistNet%>%
+  st_drop_geometry() %>%
+  group_by(name) %>%
+  summarise(avg_schoolDist = mean((schools1nn))) %>%
+  ungroup() %>%
+  dplyr::select(name,avg_schoolDist)%>%
+  left_join(phl.nh) %>%
+  st_as_sf()
+}
 # {
 #   schoolDistNet <-
 #   fishnet %>%
@@ -179,12 +205,12 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
 #     MeanSchoolDist = mean(st_distance(st_coordinates(st_centroid(fishnet)), st_coordinates(SchoolsPHL)))is.na()
 #   )
 #   }
-{
-fishnetCentroid <- st_centroid(fishnet)
-MeanSChoolDist <- st_distance(fishnetCentroid,SchoolsPHL)%>% 
-  st_sf()
-schoolDistNet <- st_join(fishnet,MeanSChoolDist)
-}
+# {
+# fishnetCentroid <- st_centroid(fishnet)
+# MeanSChoolDist <- st_distance(fishnetCentroid,SchoolsPHL)%>% 
+#   st_sf()
+# schoolDistNet <- st_join(fishnet,MeanSChoolDist)
+# }
 ## Parks and Recreation Program Sites
 ## https://opendataphilly.org/datasets/parks-recreation-program-sites/
 {
@@ -196,33 +222,35 @@ schoolDistNet <- st_join(fishnet,MeanSChoolDist)
 ## https://opendataphilly.org/datasets/neighborhood-food-retail/
 { 
   GroceryInfo <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson")%>%
-    st_transform(crs=2272)
+    st_transform(crs=2272)%>%
+    dplyr::select(TOTAL_HPSS)
+}
+{
+groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)  
 }
 
 ## Bike Network
 ## https://opendataphilly.org/datasets/bike-network/
 ## can we set this up to be distance based (similar as )
 {
-  BikeNet <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson")%>%
-    st_transform(crs=2272)
+  BikeData <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson")%>%
+    st_transform(crs=2272)%>%
+    mutate(BikeNetwork = 1)%>%
+    dplyr::select(BikeNetwork)
 }
-
+{
+  BikeNet <- st_join(fishnet,BikeData)
+}
 
 
 ## Historic District (Assume negative relationship)
 {
   historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id")%>%
-    st_transform(crs=2272)
+    st_transform(crs=2272)%>%
+    dplyr::select(name)
 }
-# {
-#   Treenet <- dplyr::select(PHLtrees) %>% 
-#     mutate(countTree = 1) %>% 
-#     aggregate(., fishnet, sum) %>%
-#     mutate(countTree = replace_na(countTree, 0),
-#            uniqueID = 1:n(),
-#            #cvID = sample(round(nrow(fishnet) / 24)
-#     )
-#   #)
-# }
+{
+  historicNet <- st_join(st_centroid(fishnet),historicDist)  
+}
 
-# MAKE
+# MAKE final net
