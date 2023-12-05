@@ -25,54 +25,40 @@ setwd("~/Documents/MUSA5080")
 
 # load data
 {
-  # code from Nissim to download Philadelphia permit data
-  base_url <- "https://phl.carto.com/api/v2/sql"
+  # reading geojson file
+  dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
   
-  three_years_ago <- (lubridate::ymd(Sys.Date()) - lubridate::years(11))
-  one_year_ago <- (lubridate::ymd(Sys.Date()) - lubridate::years(1))
+  # deecided to remove because it takes a long timee anyways + this exceeds the maximum for amount of space allowed on github
+  # st_write(dat_permit,"Assignments/HW07-Final/data/permit_data.geojson")
   
-  building_perms_query <- sprintf("
-                  SELECT 
-                  address,
-                  addressobjectid,
-                  approvedscopeofwork,
-                  commercialorresidential,
-                  opa_account_num,
-                  permittype,
-                  status,
-                  unit_num,
-                  unit_type,
-                  permitissuedate, 
-                  typeofwork, 
-                  ST_Y(the_geom) AS lat, ST_X(the_geom) AS lng
-                  FROM permits
-                  WHERE permitissuedate >= '%s' AND permitissuedate < '%s'
-                 ", three_years_ago, one_year_ago)
+  # OPA housing permit data
   
-  building_permits <- st_as_sf(get_carto(building_perms_query,
-                                         format = 'csv',
-                                         base_url = base_url,
-                                         stringsAsFactors = FALSE) |>
-                                 dplyr::filter(
-                                   !is.na(lat),
-                                   !is.na(lng)),
-                               coords = c("lng", "lat"),
-                               crs = st_crs('EPSG:4326')) |>
-    st_transform(crs = st_crs("EPSG:2272")) %>%
-    mutate(permits_count = 1)
   
-  # write permits to the data subfolder
-  building_permits_path <- "data/building_permits.geojson"
-  saveRDS(building_permits, building_permits_path)
+  # census data
+  census_vars <- c() # census variables of interest
+  
+  
 }
 
 # Data Exploration
 {
   # making simple tables of types of permits
-  permit_type <- sort(unique(building_permits$permittype))
-  work_type <- sort(unique(building_permits$typeofwork))
+  permit_type <- sort(unique(dat_permit$permittype))
+  work_type <- sort(unique(dat_permit$typeofwork))
   
+  tow_tokeep <- work_type[grep("NEW|MAJOR",unique(work_type))] # typeofwork values to keep: values that contain "new", "major"
   
+  dat_permit_tokeep <- dat_permit %>% 
+    mutate(year = format(mostrecentinsp, format="%Y")) %>% 
+    filter(typeofwork %in% tow_tokeep)
+  
+  dat_permit_complete <- dat_permit_tokeep %>% 
+    filter(status == "COMPLETED")  # only keep completed permits for now
+  
+  # predictors for permit count model
+  # - inflation rate, unemployment rate,
+  # - demographics of neighborhood
+  # - building safety codes
 }
 
 
