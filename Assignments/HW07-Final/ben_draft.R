@@ -128,7 +128,7 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
     st_sf()%>%
     mutate(UniqueID = row_number())
 }
-  }
+  
 ## Neighborhood Reading
 {
   phl.nh <- st_read("https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson") %>%
@@ -155,25 +155,36 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
   SchoolsPHL <- st_read("https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson")%>%
     st_transform(crs=2272)
 }
-
-  {
-    schoolDistNet <- fishnet %>%
-    mutate(
-      schools1nn = nn_function(st_coordinates(fishnet),  st_coordinates(SchoolsPHL), k = 1))
-  }
-  
 {
-  schoolDistNet <-
-  fishnet %>%
-    drop_na()%>%
-  mutate(
-    MeanSchoolDist = mean(st_distance(st_coordinates(st_centroid(fishnet)), st_coordinates(SchoolsPHL)))
+  Schoolnet <- dplyr::select(SchoolsPHL) %>% 
+    mutate(countSchool = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(countSchool = replace_na(countSchool, 0),
+           uniqueID = 1:n(),
+      #     cvID = sample(round(nrow(fishnet) / 24)
     )
-    
+  #)
 }
-  fishnetCentroid <- st_centroid(fishnet)
-MeanSChoolDist <- st_distance(fishnetCentroid,SchoolsPHL)
-schoolDistNet <-
+
+# {
+#     schoolDistNet <- fishnet %>%
+#     mutate(
+#       schools1nn = nn_function(st_coordinates(fishnet),  st_coordinates(SchoolsPHL), k = 1))
+# }
+#   
+# {
+#   schoolDistNet <-
+#   fishnet %>%
+#   mutate(
+#     MeanSchoolDist = mean(st_distance(st_coordinates(st_centroid(fishnet)), st_coordinates(SchoolsPHL)))is.na()
+#   )
+#   }
+{
+fishnetCentroid <- st_centroid(fishnet)
+MeanSChoolDist <- st_distance(fishnetCentroid,SchoolsPHL)%>% 
+  st_sf()
+schoolDistNet <- st_join(fishnet,MeanSChoolDist)
+}
 ## Parks and Recreation Program Sites
 ## https://opendataphilly.org/datasets/parks-recreation-program-sites/
 {
@@ -190,41 +201,28 @@ schoolDistNet <-
 
 ## Bike Network
 ## https://opendataphilly.org/datasets/bike-network/
+## can we set this up to be distance based (similar as )
 {
   BikeNet <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson")%>%
     st_transform(crs=2272)
 }
+
+
 
 ## Historic District (Assume negative relationship)
 {
   historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id")%>%
     st_transform(crs=2272)
 }
-
+# {
+#   Treenet <- dplyr::select(PHLtrees) %>% 
+#     mutate(countTree = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(countTree = replace_na(countTree, 0),
+#            uniqueID = 1:n(),
+#            #cvID = sample(round(nrow(fishnet) / 24)
+#     )
+#   #)
+# }
 
 # MAKE
-{
-final_net <- 
-  
-  
-  
-}
-
-
-
-{head(GroceryInfo)}
-
-  {
-  ggplot()+
-      geom_sf(data= phl.nh, fill = grey(level = 1, alpha=0.5))+
-      #geom_sf(data = GroceryInfo, aes(fill = TOTAL_HPSS))
-      geom_sf(data=BikeNet)
-      #geom_sf(data = historicDist)+
-      #geom_sf(data = PHLtrees, color = "Black")
-  }
-# PHL Summary
-{
-phlnhSummary <- phl.nh %>%
-    dplyr::select(data=GroceryInfo, TOTAL_HPSS)%>%
-  
-}
