@@ -239,7 +239,9 @@ groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)
     dplyr::select(BikeNetwork)
 }
 {
-  BikeNet <- st_join(fishnet,BikeData)
+  BikeNet <- st_join(fishnet,BikeData)%>%
+    mutate(legend = "Bike Network",
+           
 }
 
 
@@ -254,3 +256,6 @@ groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)
 }
 
 # MAKE final net
+
+final_net <- rbind(BikeNet,groceryNet,historicNet,schoolDistNet,Treenet)
+#have to make all o the column names the same
