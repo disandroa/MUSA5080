@@ -115,11 +115,11 @@ options(scipen=999)
     st_transform('ESRI:102728')
   
   # write out smaller geojson file
-  st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
+  st_write(newcon_permits,"C:/Users/benja/Documents/GitHub/MUSA5080/Assignments/HW07-Final")
   
   rm(dat_permit)
   
-  newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson")
+  newcon_permits <- st_read("C:/Users/benja/Documents/GitHub/MUSA5080/Assignments/HW07-Finaldata/newcon_permits.geojson")
   
   # OPA housing permit data
     # missing
@@ -137,11 +137,11 @@ options(scipen=999)
 permitnet <- dplyr::select(permits) %>% 
   mutate(countPermit = 1) %>% 
   aggregate(., fishnet, sum) %>%
-  mutate(countPermit = replace_na(countPermit, 0),
-         uniqueID = 1:n(),
-         #cvID = sample(round(nrow(fishnet) / 24)
-                       )
-   #      )
+  mutate(value = replace_na(countPermit, 0),
+                legend = "Permit Count",
+         UniqueID = 1:n()
+         )%>%
+           dplyr::select(legend, UniqueID, value, geometry)
 }  
   ## City Limits
 {
@@ -171,11 +171,10 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
     Treenet <- dplyr::select(PHLtrees) %>% 
       mutate(countTree = 1) %>% 
       aggregate(., fishnet, sum) %>%
-      mutate(countTree = replace_na(countTree, 0),
-             uniqueID = 1:n(),
-             #cvID = sample(round(nrow(fishnet) / 24)
-                           )
-             #)
+      mutate(value = replace_na(countTree, 0),
+             UniqueID = 1:n(),
+             legend = "Tree Network")%>%
+    dplyr::select(legend, UniqueID, value, geometry)
 }
 ## School Reading
 {
@@ -185,8 +184,12 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
 {
     schoolDistNet <- fishnet %>%
     mutate(
-      schools3nn = nn_function(st_coordinates(st_centroid(fishnet)),  st_coordinates(SchoolsPHL), k = 3)
-    )
+      value = nn_function(st_coordinates(st_centroid(fishnet)),  st_coordinates(SchoolsPHL), k = 3),
+      UniqueID = 1:n(),
+      legend = "3NN School")%>%
+        dplyr::select(legend, UniqueID, value, geometry)
+      
+      
 }
 {
   SchoolDistNH <- schoolDistNet%>%
@@ -226,8 +229,15 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
     dplyr::select(TOTAL_HPSS)
 }
 {
-groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)  
+groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)%>%
+    mutate(
+      value = replace_na(TOTAL_HPSS, 0),
+      UniqueID = 1:n(),
+      legend = "Total High Produce Stores")%>%
+    dplyr::select(legend, UniqueID, value, geometry)
+  
 }
+#still need to convert back to fishnets
 
 ## Bike Network
 ## https://opendataphilly.org/datasets/bike-network/
@@ -235,13 +245,16 @@ groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)
 {
   BikeData <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson")%>%
     st_transform(crs=2272)%>%
-    mutate(BikeNetwork = 1)%>%
-    dplyr::select(BikeNetwork)
+    mutate(innetwork = 1)%>%
+    dplyr::select(innetwork)
 }
 {
   BikeNet <- st_join(fishnet,BikeData)%>%
-    mutate(legend = "Bike Network",
-           
+    mutate(
+      value = ifelse(innetwork == 1, 1,0),
+           legend = "Bike Network")%>%
+    select(legend, UniqueID, value, geometry)%>%
+    replace_na(list(value = 0))
 }
 
 
@@ -252,10 +265,14 @@ groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)
     dplyr::select(name)
 }
 {
-  historicNet <- st_join(st_centroid(fishnet),historicDist)  
+  historicNet <- st_join(st_centroid(fishnet),historicDist)%>%
+    mutate(
+      value = replace_na(name, "none"),
+      legend = "Historic Districts")%>%
+    select(legend, UniqueID, value, geometry)
 }
 
 # MAKE final net
 
-final_net <- rbind(BikeNet,groceryNet,historicNet,schoolDistNet,Treenet)
+final_net <- rbind(BikeNet,groceryNet,historicNet,schoolDistNet,Treenet, permitnet)
 #have to make all o the column names the same
