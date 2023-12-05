@@ -1,8 +1,12 @@
 ---
 title: "Final"
-author: "Akira Di Sandro"
-date: "2023-11-29"
-output: html_document
+author: "Akira Di Sandro & Benjamin Myers"
+date: "2023-12-15"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
