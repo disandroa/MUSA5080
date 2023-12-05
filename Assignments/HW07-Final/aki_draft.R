@@ -2,13 +2,13 @@
 
 # Akira Di Sandro, 11/28/23
 
-# load packages
+# load packages ----
 {
   # remotes::install_github("CityOfPhiladelphia/rphl")
   library(tidyverse)
   library(tidycensus)
   library(sf)
-  library(rphl)
+  # library(rphl)
   library(kableExtra)
   library(grid)
   library(gridExtra)
@@ -17,19 +17,25 @@
 # set working directory
 setwd("~/Documents/MUSA5080")
 
-# load functions
+# load functions ----
 {
   
 }
 
 
-# load data
+# load data ----
 {
-  # reading geojson file
-  dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+  ## philly permit data ----
+  {
+    dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+    
+    # only keep new construction permits
+    newcon_permits <- dat_permit %>% 
+      filter(grepl("NEW CON|NEWCON",typeofwork))
+  }
   
-  # deecided to remove because it takes a long timee anyways + this exceeds the maximum for amount of space allowed on github
-  # st_write(dat_permit,"Assignments/HW07-Final/data/permit_data.geojson")
+  
+  
   
   # OPA housing permit data
   
@@ -37,7 +43,11 @@ setwd("~/Documents/MUSA5080")
   # census data
   census_vars <- c() # census variables of interest
   
-  
+  # philly neighborhood data
+  nhoods_path <- 'https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson'
+  nhoods <- st_read(nhoods_path, quiet = T) %>%
+    st_transform('ESRI:102728') %>%
+    dplyr::select(mapname)
 }
 
 # Data Exploration
