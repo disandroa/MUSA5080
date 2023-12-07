@@ -35,142 +35,240 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 ```
 
 ```{r data download + wrangling, results='hide'}
-# philly permit data
-  dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
-  # 
-  # # only keep new construction permits
-  newcon_permits <- dat_permit %>%
-    filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
-    st_transform(crs = 2272)
-  
-  # write out smaller geojson file
-  # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
-  
-  # rm(dat_permit)
-  
-  # newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") %>% 
-  #   st_transform(crs = 2272)
-  # for some reason, points are coming out as empty from this geojson
-  # this timee it worked?? idk what's going on
-  
-  # census data
-  # variables of interest:
-  # B19013_001 - medHHincome
-  # B25026_001 - total pop 
-  # B02001_002 - white pop
-  # med home value (if possible)
-  # B25058_001 - median rent
-  # B15003_022 - attainment of bachelor's of population 25+
-  acs_variable_list.2021 <- load_variables(2021, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  census_vars <- c("B25026_001E","B15003_022E","B19013_001E","B02001_002E","B02001_002E","B25058_001E") # census variables of interest 
-  tracts21 <- 
-    get_acs(geography = "tract", 
-            variables = census_vars, 
-            year = 2021, state = 42,
-            geometry = T, output = "wide") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(!matches("M$")) %>% 
-    rename(total_pop = B25026_001E, 
-           bachelors25 = B15003_022E, 
-           white_pop = B02001_002E, 
-           medHHinc = B19013_001E, 
-           med_rent = B25058_001E) %>%
-    mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
-           year = "2021")
-  
-  # philly neighborhood data
-  nhoods_path <- 'https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson'
-  nhoods <- st_read(nhoods_path, quiet = T) %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(mapname)
-  
-  # philly bounds
-  philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
-    st_transform(crs = 2272) %>% 
-    dplyr::select(OBJECTID,geometry)
-  
-  # vacant lots/buildings
-  vacant_centroids <- st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
-    st_transform(crs = 2272) %>% 
-    st_centroid() %>%
-    mutate(Legend = "Vacants") %>%
-    dplyr::select(Legend)
-  
-  # parks & rec
-  ppr_sites <- st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% 
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Parks and Rec") %>%
-    dplyr::select(Legend)
-  
-  # transit stops
-  el <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
-    st_transform(crs = 2272)
-  bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
-    st_transform(crs = 2272)
-  
-  septaStops <-
-    rbind(
-      el %>%
-        mutate(Line = "El") %>%
-        dplyr::select(Station, Line),
-      bsl %>%
-        mutate(Line ="Broad_St") %>%
-        dplyr::select(Station, Line)) %>%
-    st_transform(crs = 2272) %>%
-    mutate(Legend = "Subway Stops") %>%
-    dplyr::select(Legend)
-  
-  # proximity to CBD using city_hall as proxy
-  city_hall <- bsl %>%
-    st_transform(crs = 2272) %>%
-    filter(Station=="City Hall") %>%
-    mutate(Legend = "City Hall") %>%
-    dplyr::select(Legend)
-  
-  # schools
-  schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Schools") %>% 
-    dplyr::select(Legend)
-  
-  # trees
-  trees <- st_read("https://opendata.arcgis.com/api/v3/datasets/30ef36e9e880468fa74e2d5b18da4cfb_0/downloads/data?format=geojson&spatialRefId=4326") %>%
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Trees") %>% 
-    dplyr::select(Legend)
-  
-  # grocery stores (last updated 2019)
-  # this data is already in a count per block group format
-  groshies <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson") %>%
-    st_transform(crs = 2272) #%>%
-    # dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
-  # TOTAL_HPSS = Total number of high-produce supply stores within a half mile walking distance of the block group
-  
-  # bike info
-  # use as count or binary data (does this square in the fishnet have a street that is bike-accessible in it?)
-  bikes <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson") %>%
-    st_transform(crs = 2272) %>%
-    mutate(Legend = "Bike Network") #%>%
-    # dplyr::select(Legend)
-  
-  # historic districts
-  # use as binary (is the centroid of the fishnet square in one of these historic districts?)
-  historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(name)
+# philly bounds
+philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
+  st_transform('ESRI:102728') %>% 
+  dplyr::select(OBJECTID,geometry)
+
+# read incidents file
+# incidents21 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_21/incidents_part1_part2.shp") %>% 
+#   st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+
+carto_url = "https://phl.carto.com/api/v2/sql"
+
+# Crime incidents
+table_name = "incidents_part1_part2"
+
+# query
+where = "dispatch_date >= '2022-01-01' AND dispatch_date < '2023-01-01' AND text_general_code IN ('DRIVING UNDER THE INFLUENCE','Theft from Vehicle','Thefts','Disorderly Conduct','Public Drunkenness', 'Arson', 'Vandalism/Criminal Mischief')"
+
+query = paste("SELECT *",
+              "FROM", table_name,
+              "WHERE", where)
+
+incidents21 = rphl::get_carto(query, format = "csv", base_url = carto_url, stringsAsFactors = F)%>%
+   rename(Legend = text_general_code)
+incidents21 <- incidents21 %>%
+   filter(!is.na(point_x) & !is.na(point_y)) %>%
+   st_as_sf(coords = c("point_x","point_y"),crs=4326) %>%
+     st_transform('ESRI:102728') %>%
+   dplyr::select(Legend, geometry)
+
+
+# filter to only keep vandalism incidents
+vandalism <- incidents21 %>% filter(Legend == "Vandalism/Criminal Mischief") # 13670 rows
+
+# only keep what's inside the philly boundary
+vandalism <- vandalism[philly,] # 13578 rows
+
+# same for other risk factors: public drunkenness, arson, disorderly conduct, thefts, theft from vehicle, dui
+# also make feature for nearest neighbor count of these incidents
+public_drunk <- incidents21 %>% filter(Legend == "Public Drunkenness") %>% 
+  dplyr::select(Legend,geometry)
+public_drunk <- public_drunk[philly,]
+
+arson <- incidents21 %>% filter(Legend == "Arson") %>% 
+  dplyr::select(Legend,geometry)
+arson <- arson[philly,]
+
+disorderly <- incidents21 %>% filter(Legend == "Disorderly Conduct") %>% 
+  dplyr::select(Legend,geometry)
+disorderly <- disorderly[philly,]
+
+thefts <- incidents21 %>% filter(Legend == "Thefts") %>% 
+  dplyr::select(Legend,geometry)
+thefts <- thefts[philly,]
+
+theft_from_veh <- incidents21 %>% filter(Legend == "Theft from Vehicle") %>% 
+  dplyr::select(Legend,geometry)
+theft_from_veh <- theft_from_veh[philly,]
+
+dui <- incidents21 %>% filter(Legend == "DRIVING UNDER THE INFLUENCE") %>% 
+  dplyr::select(Legend,geometry)
+dui <- dui[philly,]
+
+# add MedHHInc, TotalPop, maleFemaleRatio, popUnder18 (people under 25, can only find under 18 for now)
+acs_vars <- c("B25026_001E","B01001A_001E","B19013_001E","B09001_001E","B01001_002E","B01001_026E", 
+              "B01001_003E","B01001_004E","B01001_005E","B01001_006E","B01001_007E","B01001_008E","B01001_009E","B01001_010E",
+              "B01001_027E","B01001_028E","B01001_029E","B01001_030E","B01001_031E","B01001_032E","B01001_033E","B01001_034E")
+
+tract21 <- get_acs(geography = "tract", variables = acs_vars,
+                   year = 2021, state = "PA", 
+                   geometry = T, output = "wide") %>% 
+  data.frame() %>% st_as_sf() %>% st_transform(st_crs(vandalism)) %>% 
+  mutate(TotalPop = B25026_001E, 
+         RaceContext = ifelse((B01001A_001E / TotalPop) > 0.5, "Majority White", "Majority non-White"),
+         MedHHInc = B19013_001E,
+         popUnder18 = B09001_001E,
+         maleFemaleRatio = B01001_002E/B01001_026E,
+         maleUnder25 = B01001_003E+B01001_004E+B01001_005E+B01001_006E+B01001_007E+B01001_008E+B01001_009E+B01001_010E,
+         femaleUnder25 = B01001_027E+B01001_028E+B01001_029E+B01001_030E+B01001_031E+B01001_032E+B01001_033E+B01001_034E,
+         popUnder25 = maleUnder25 + femaleUnder25) %>% 
+  dplyr::select(GEOID, TotalPop:popUnder25, geometry)
+
+# block group might be easier to split into fishnet
+# blockgroup21 <- get_acs(geography = "block group", variables = acs_vars,
+#                    year = 2021, state = "PA", 
+#                    geometry = T, output = "wide") %>% 
+#   data.frame() %>% 
+#   mutate(TotalPop = B25026_001E, 
+#          MedHHInc = B19013_001E,
+#          popUnder18 = B09001_001E,
+#          maleFemaleRatio = B01001_002E/B01001_026E,
+#          maleUnder25 = B01001_003E+B01001_004E+B01001_005E+B01001_006E+B01001_007E+B01001_008E+B01001_009E+B01001_010E,
+#          femaleUnder25 = B01001_027E+B01001_028E+B01001_029E+B01001_030E+B01001_031E+B01001_032E+B01001_033E+B01001_034E,
+#          popUnder25 = maleUnder25 + femaleUnder25) %>% 
+#   dplyr::select(GEOID, TotalPop:popUnder25, geometry)
+
+# make sure Inf and NaN are turned into NA
+tract21 <- tract21 %>% mutate(maleFemaleRatio = case_when(is.finite(maleFemaleRatio) ~ maleFemaleRatio,
+                                                          is.infinite(maleFemaleRatio) ~ NA,
+                                                          is.nan(maleFemaleRatio) ~ NA))
+
+# separate into own factors
+# totalpop <- tract21 %>% dplyr::select(TotalPop,geometry)
+# totalpop <- totalpop[philly,]
+# 
+# medHHinc <- tract21 %>% dplyr::select(MedHHInc,geometry)
+# medHHinc <- medHHinc[philly,]
+# 
+# under18 <- tract21 %>% dplyr::select(popUnder18,geometry)
+# under18 <- under18[philly,]
+# 
+# mfratio <- tract21 %>% dplyr::select(maleFemaleRatio,geometry)
+# mfratio <- mfratio[philly,]
+# 
+# munder25 <- tract21 %>% dplyr::select(maleUnder25,geometry)
+# munder25 <- munder25[philly,]
+# 
+# funder25 <- tract21 %>% dplyr::select(femaleUnder25,geometry)
+# funder25 <- funder25[philly,]
+# 
+# under25 <- tract21 %>% dplyr::select(popUnder25,geometry)
+# under25 <- under25[philly,]
+
+# for population of people under 25, might need to add
+# sum B01001_003 - B01001_010 for males under 24
+# sum B01001_027 - B01001_034 for females under 24
+
+# how to join above spatial data to fishnet??
+
+
+# philly neighborhoods
+nhoods_path <- 'https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson'
+nhoods <- st_read(nhoods_path, quiet = T) %>%
+  st_transform('ESRI:102728') %>%
+  dplyr::select(mapname)
+
+# police info
+# police_districts <- st_read("https://opendata.arcgis.com/datasets/62ec63afb8824a15953399b1fa819df2_0.geojson") %>%
+#   st_transform(st_crs(vandalism)) %>%
+#   select(District = DISTRICT_)
+# 
+# police_service_areas <- st_read("https://opendata.arcgis.com/datasets/8dc58605f9dd484295c7d065694cdc0f_0.geojson") %>%
+#   st_transform(st_crs(vandalism)) %>%
+#   select(District = PSA_NUM)
+# 
+# bothPoliceUnits <- rbind(mutate(police_districts,     Legend = "Police Districts"), 
+#                          mutate(police_service_areas, Legend = "Police Beats"))
+ 
+# vacant lots/buildings
+vacant_centroids = st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
+            st_transform(st_crs(vandalism)) %>% 
+            st_centroid() %>%
+            mutate(Legend = "Vacants") %>%
+            dplyr::select(Legend)
+
+# parks & rec
+ppr_sites = st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% st_transform(st_crs(vandalism)) %>% 
+            mutate(Legend = "Parks and Rec") %>%
+            dplyr::select(Legend)
+
+# transit stops
+el       <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
+  st_transform('ESRI:102728')
+bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
+  st_transform('ESRI:102728')
+
+septaStops <-
+  rbind(
+     el %>%
+      mutate(Line = "El") %>%
+      dplyr::select(Station, Line),
+     bsl %>%
+      mutate(Line ="Broad_St") %>%
+      dplyr::select(Station, Line)) %>%
+  st_transform(st_crs(vandalism)) %>%
+  mutate(Legend = "Subway Stops") %>%
+  dplyr::select(Legend)
+
+# proximity to CBD using city_hall as proxy
+city_hall <- bsl %>%
+  st_transform(st_crs(vandalism)) %>%
+  filter(Station=="City Hall") %>%
+  mutate(Legend = "City Hall") %>%
+  dplyr::select(Legend)
+
+# schools
+schools <- st_read("https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson") %>% 
+  st_transform('ESRI:102728') %>% 
+  mutate(Legend = "Schools") %>% 
+  dplyr::select(Legend)
+
+# features of interest to add
+# - density of property/buildings
+# - proximity to CBD
+# - proximity to transit
+# - proximity to schools
+# - proximity to parks and rec
+# - distance to vacant lots
+
 ```
 
 ## Introduction
 
-### Background
+### Background: Vandalism in Philadelphia
 
 
 
 # IDEA! it would be nice if we could have an animated plot demonstrating how permit count changed every year + another one of how neighborhood haverages of medHHincome chnaged over those same years. maybe even put on the same map if possible?
 
+
+#### Figure 1. Vandalism in Philadelphia (2021)
+
+```{r fig1/outcome map}
+
+vand_points <- ggplot() +
+       geom_sf(data = philly, fill = "grey40") +
+       geom_sf(data = vandalism, colour="#fde725ff", size=0.1, show.legend = "point") +
+       labs(title= "Vandalism, Philadelphia - 2021") +
+       mapTheme(title_size = 14)
+
+vand_density <- ggplot() + 
+       geom_sf(data = nhoods, fill = "grey40", color = "lightgrey") +
+       stat_density2d(data = data.frame(st_coordinates(vandalism)),
+                      aes(X, Y, fill = ..level.., alpha = ..level..),
+                      size = 0.01, bins = 40, geom = 'polygon') +
+       scale_fill_viridis() +
+       scale_alpha(range = c(0.00, 0.35), guide = FALSE) +
+       labs(title = "Density of Vandalism Incidents") +
+       mapTheme(title_size = 14) + theme(legend.position = "none")
+
+vand_list <- list(vand_points,vand_density)
+
+do.call(grid.arrange, c(vand_list, ncol = 2, bottom = "Figure 1."))
+
+```
 
 ## Methods
 
@@ -182,111 +280,69 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 ```{r fig2/fishnet outcome}
 # our CRS is in feet, but want to make fishnet a 500m x 500m
-  cell_size <- 500 * 3.28084
-  
-  fishnet <- 
-    st_make_grid(philly,
-                 cellsize = cell_size,  
-                 square = TRUE,
-                 crs = 2272) %>% 
-    .[philly] %>%
-    st_sf() %>%              
-    mutate(uniqueID = 1:n()) 
-  
-  permit_net <- 
-    dplyr::select(newcon_permits) %>% 
-    mutate(count_permits = 1) %>% 
-    aggregate(., fishnet, sum) %>%
-    mutate(count_permits = replace_na(count_permits, 0),
-           uniqueID = as.numeric(rownames(.)),
-           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
-  
-  ggplot() +
-    geom_sf(data = permit_net, aes(fill = count_permits)) +
-    scale_fill_viridis() +
-    labs(title = "Count of New Construction Permits for the fishnet",
-         caption = "Figure x.") +
-    mapTheme()
+cell_size <- 500 * 3.28084
+
+fishnet <- 
+  st_make_grid(philly,
+               cellsize = cell_size,  
+               square = TRUE) %>% 
+  .[philly] %>%            
+  st_sf() %>%              
+  mutate(uniqueID = 1:n()) 
+
+crime_net <- 
+  dplyr::select(vandalism) %>% 
+  mutate(countVand = 1) %>% 
+  aggregate(., fishnet, sum) %>%
+  mutate(countVand = replace_na(countVand, 0),
+         uniqueID = as.numeric(rownames(.)),
+         cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
+
+ggplot() +
+  geom_sf(data = crime_net, aes(fill = countVand)) +
+  scale_fill_viridis() +
+  labs(title = "Count of Vandalism for the fishnet",
+       caption = "Figure 2.") +
+  mapTheme()
+
 ```
 
 ```{r create vars_net}
-# most vars can be added easily
-  # special cases: groshies,bikes,historicDist
-  vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees) %>%
-    st_join(fishnet, join=st_within) %>%  # if the point from abandonCars is in the fishnet, assign the unique ID to that point
-    st_drop_geometry() %>%
-    group_by(uniqueID, Legend) %>%
-    summarize(count = n()) %>%
-    left_join(fishnet, ., by = "uniqueID") %>%  # add geometry back in
-    spread(Legend, count, fill=0) %>%  # fill in ones where fishnet was missing, count was NA with 0
-    dplyr::select(-`<NA>`) %>%
-    ungroup()
-  
-  # use something like code below (from lab 6) to create nearest neighbor counts
-  # convenience to reduce length of function names.
-  st_c    <- st_coordinates
-  st_coid <- st_centroid
-  
-  vars_net_ccoid <- st_c(st_coid(vars_net))
-  
-  ## create NN from abandoned cars
-  vars_net <- vars_net %>%
-    mutate(vacant_centroids.nn = nn_function(vars_net_ccoid, st_c(vacant_centroids), 8),
+# net of variables of interest
+vars_net <- rbind(public_drunk, arson, disorderly, thefts, theft_from_veh, dui,
+                  # totalpop, medHHinc, under18, mfratio, munder25, funder25, under25, # don't know how to join these for now
+                  vacant_centroids, ppr_sites, septaStops, city_hall, schools) %>%
+  st_join(fishnet, join=st_within) %>%  # if the point from abandonCars is in the fishnet, assign the unique ID to that point
+  st_drop_geometry() %>%
+  group_by(uniqueID, Legend) %>%
+  summarize(count = n()) %>%
+  left_join(fishnet, ., by = "uniqueID") %>%  # add geometry back in
+  spread(Legend, count, fill=0) %>%  # fill in ones where fishnet was missing, count was NA with 0
+  dplyr::select(-`<NA>`) %>%
+  ungroup()
+
+
+# use something like code below (from lab 6) to create nearest neighbor counts
+# convenience to reduce length of function names.
+st_c    <- st_coordinates
+st_coid <- st_centroid
+
+vars_net_ccoid <- st_c(st_coid(vars_net))
+
+## create NN from abandoned cars
+vars_net <- vars_net %>%
+    mutate(public_drunk.nn = nn_function(vars_net_ccoid, st_c(public_drunk), 8),
+           arson.nn = nn_function(vars_net_ccoid, st_c(arson), 8),
+           disorderly.nn = nn_function(vars_net_ccoid, st_c(disorderly), 8),
+           thefts.nn = nn_function(vars_net_ccoid, st_c(thefts), 8),
+           theft_from_veh.nn = nn_function(vars_net_ccoid, st_c(theft_from_veh), 8),
+           dui.nn = nn_function(vars_net_ccoid, st_c(dui), 8),
+           vacant_centroids.nn = nn_function(vars_net_ccoid, st_c(vacant_centroids), 8),
            ppr_sites.nn = nn_function(vars_net_ccoid, st_c(ppr_sites), 3),
            septa_stops.nn = nn_function(vars_net_ccoid, st_c(septaStops), 2),
            city_hall.nn = nn_function(vars_net_ccoid, st_c(city_hall), 1),
-           schools.nn = nn_function(vars_net_ccoid, st_c(schools), 8),
-           trees.nn = nn_function(vars_net_ccoid, st_c(trees), 8)) 
-  
-  
-  # IGNORE THIS FOR NOW!:)
-  # think about how to add binary variables 
-  # vars_net <- vars_net %>% 
-  #   mutate(in_historic = ifelse())
-  # # groceries, get centroids of block groups and map that on to the fishnet
-  # # from groceries, get HPSS_ACCESS, TOTAL_RESTAURANTS, TOTAL_HPSS
-  # total_hpss <- st_join(groshies %>% dplyr::select(TOTAL_HPSS), fishnet) %>% 
-  #   group_by(uniqueID) %>% 
-  #   summarize(total_hpss = mean(TOTAL_HPSS,na.rm=T)) # take average 
-  # 
-  # total_restaurants <- st_join(groshies %>% dplyr::select(TOTAL_RESTAURANTS), fishnet) %>% 
-  #   group_by(uniqueID) %>% 
-  #   summarize(total_restaurants = sum(TOTAL_RESTAURANTS,na.rm=T))
-  # 
-  # groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)%>%
-  #   mutate(
-  #     value = replace_na(TOTAL_HPSS, 0),
-  #     UniqueID = 1:n(),
-  #     legend = "Total High Produce Stores")%>%
-  #   dplyr::select(legend, UniqueID, value, geometry)
-  # groceryNet <- groceryNet%>%
-  #   st_drop_geometry()%>%
-  #   left_join(fishnet,groceryNet,by = "UniqueID")%>%
-  #   st_sf()
-  # dplyr::select(legend, UniqueID, value, geometry)
-  # 
-  # # historic - binary variable 
-  # historicNet <- st_join(st_centroid(fishnet),historicDist)%>%
-  #   mutate(
-  #     value = replace_na(name, "none"),
-  #     legend = "Historic Districts")%>%
-  #   select(legend, UniqueID, value, geometry)
-  # historicNet <- historicNet%>%
-  #   st_drop_geometry()%>%
-  #   left_join(fishnet,historicNet,by = "UniqueID")%>%
-  #   st_sf()
-  # dplyr::select(legend, UniqueID, value, geometry)
-  # 
-  # # bike network - if bike network ran through 
-  # BikeNet <- st_join(fishnet,BikeData)%>%
-  #   mutate(
-  #     value = ifelse(innetwork == 1, 1,0),
-  #     legend = "Bike Network")%>%
-  #   select(legend, UniqueID, value, geometry)%>%
-  #   replace_na(list(value = 0))
-  
-  
-  
+           schools.nn = nn_function(vars_net_ccoid, st_c(schools), 8)) 
+
 ```
 
 ### Risk Factor Selection
@@ -295,24 +351,45 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 ```{r final_net}
 all_net <-
-    left_join(permit_net, st_drop_geometry(vars_net), by="uniqueID") 
-  
-  
-  # make a subset of the net with variables we're actually interested in putting in the model
-  subset_net <- all_net %>% 
-    dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
-                  thefts.nn,disorderly.nn) %>% 
-    rename(Thefts_from_Vehicle = `Theft from Vehicle`,
-           vacant_lots_buildings.nn = vacant_centroids.nn,
-           DUI.nn = dui.nn,
-           Thefts.nn = thefts.nn,
-           Disorderly_conduct.nn = disorderly.nn) %>% 
-    st_centroid() %>%
-    st_join(dplyr::select(nhoods, mapname)) %>%
-    st_drop_geometry() %>%
-    left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
-    st_sf() %>%
-    na.omit()
+  left_join(crime_net, st_drop_geometry(vars_net), by="uniqueID") 
+
+# might want to change above depending on model
+# trying things that stood out from model
+# final_net1 <- all_net %>% 
+#   dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,Vacants,dui.nn,
+#                 schools.nn,septa_stops.nn,ppr_sites.nn,geometry) %>% 
+#   rename(`Vacant Lots/Buildings` = Vacants, 
+#          `DUI (nn)` = dui.nn,
+#          `Schools (nn)` = schools.nn,
+#          `Subway Stops (nn)` = septa_stops.nn,
+#          `Parks and Rec (nn)` = ppr_sites.nn)
+
+# subset_net <- all_net %>% 
+#   dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,Vacants,dui.nn) %>% 
+#   rename(Thefts_from_Vehicle = `Theft from Vehicle`,
+#          Vacant_lots_buildings = Vacants,
+#          DUI.nn = dui.nn) %>% 
+#   st_centroid() %>%
+#   st_join(dplyr::select(nhoods, mapname)) %>%
+#   st_drop_geometry() %>%
+#   left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+#   st_sf() %>%
+#   na.omit()
+
+subset_net <- all_net %>% 
+  dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
+                thefts.nn,disorderly.nn) %>% 
+  rename(Thefts_from_Vehicle = `Theft from Vehicle`,
+         vacant_lots_buildings.nn = vacant_centroids.nn,
+         DUI.nn = dui.nn,
+         Thefts.nn = thefts.nn,
+         Disorderly_conduct.nn = disorderly.nn) %>% 
+  st_centroid() %>%
+  st_join(dplyr::select(nhoods, mapname)) %>%
+  st_drop_geometry() %>%
+  left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+  st_sf() %>%
+  na.omit()
 
 ```
 
@@ -320,28 +397,30 @@ all_net <-
 
 ```{r fig3/correlation matrix}
 # making this moreso to see which would actually be good predictors
-  for_cormat <- all_net %>% 
-    st_drop_geometry() %>% 
-    # dplyr::select(countVand,Arson,arson.nn,`City Hall`,city_hall.nn,`Disorderly Conduct`,disorderly.nn, 
-    #               `DRIVING UNDER THE INFLUENCE`,dui.nn,`Parks and Rec`,ppr_sites.nn,`Public Drunkenness`,
-    #               public_drunk.nn,Schools,schools.nn,`Subway Stops`,septa_stops.nn,`Theft from Vehicle`,
-    #               theft_from_veh.nn,Thefts,thefts.nn,Vacants,vacant_centroids.nn)
-    dplyr::select(-c(uniqueID,cvID))
-  
-  ggcorrplot(
-    round(cor(for_cormat), 1), 
-    # method = "circle",
-    p.mat = cor_pmat(for_cormat),
-    colors = c("#4b2875", "white", "#9c1339"),
-    type="lower",
-    insig = "blank",
-    digits = 4,
-    lab = T, lab_size = 2) +  
+for_cormat <- all_net %>% st_drop_geometry() %>% 
+  # dplyr::select(countVand,Arson,arson.nn,`City Hall`,city_hall.nn,`Disorderly Conduct`,disorderly.nn, 
+  #               `DRIVING UNDER THE INFLUENCE`,dui.nn,`Parks and Rec`,ppr_sites.nn,`Public Drunkenness`,
+  #               public_drunk.nn,Schools,schools.nn,`Subway Stops`,septa_stops.nn,`Theft from Vehicle`,
+  #               theft_from_veh.nn,Thefts,thefts.nn,Vacants,vacant_centroids.nn)
+  dplyr::select(-c(uniqueID,cvID)) %>% 
+  rename(DUI = `DRIVING UNDER THE INFLUENCE`)
+
+ggcorrplot(
+  round(cor(for_cormat), 1), 
+  # method = "circle",
+  p.mat = cor_pmat(for_cormat),
+  colors = c("#4b2875", "white", "#9c1339"),
+  type="lower",
+  insig = "blank",
+  digits = 4,
+  lab = T, lab_size = 2) +  
     labs(title = "Correlation",
-         caption = "Figure x.") 
-  
-  # strongest pred to keep: 
-  # 
+         caption = "Figure 3.") 
+
+# strong pred to keep: 
+# arson/arson.nn, theft from veh, vacants/vacant.nn, dui.nn
+# schools.nn, septa_stops.nn, ppr.nn, thefts/thefts.nn, disorderly.nn, 
+
 ```
 
 ### Spatial Process of Vandalism
