@@ -13,6 +13,9 @@
   library(grid)
   library(gridExtra)
   library(viridis)
+  library(FNN)
+  library(ggplot2)
+  library(ggcorrplot)
 }
 
 # set working directory
@@ -22,7 +25,6 @@ setwd("~/Documents/MUSA5080")
 {
   source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 }
-
 
 # load data ----
 {
@@ -136,8 +138,8 @@ setwd("~/Documents/MUSA5080")
   # grocery stores (last updated 2019)
   # this data is already in a count per block group format
   groshies <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
+    st_transform(crs = 2272) #%>%
+    # dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
   # TOTAL_HPSS = Total number of high-produce supply stores within a half mile walking distance of the block group
   
   # bike info
@@ -182,7 +184,92 @@ setwd("~/Documents/MUSA5080")
     labs(title = "Count of New Construction Permits for the fishnet",
          caption = "Figure x.") +
     mapTheme()
+}
+
+# Add other predictors to Fishnet
+{
+  # most vars can be added easily
+  # special cases: groshies,bikes,historicDist
+  vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees) %>%
+    st_join(fishnet, join=st_within) %>%  # if the point from abandonCars is in the fishnet, assign the unique ID to that point
+    st_drop_geometry() %>%
+    group_by(uniqueID, Legend) %>%
+    summarize(count = n()) %>%
+    left_join(fishnet, ., by = "uniqueID") %>%  # add geometry back in
+    spread(Legend, count, fill=0) %>%  # fill in ones where fishnet was missing, count was NA with 0
+    dplyr::select(-`<NA>`) %>%
+    ungroup()
   
+  # use something like code below (from lab 6) to create nearest neighbor counts
+  # convenience to reduce length of function names.
+  st_c    <- st_coordinates
+  st_coid <- st_centroid
+  
+  vars_net_ccoid <- st_c(st_coid(vars_net))
+  
+  ## create NN from abandoned cars
+  vars_net <- vars_net %>%
+    mutate(vacant_centroids.nn = nn_function(vars_net_ccoid, st_c(vacant_centroids), 8),
+           ppr_sites.nn = nn_function(vars_net_ccoid, st_c(ppr_sites), 3),
+           septa_stops.nn = nn_function(vars_net_ccoid, st_c(septaStops), 2),
+           city_hall.nn = nn_function(vars_net_ccoid, st_c(city_hall), 1),
+           schools.nn = nn_function(vars_net_ccoid, st_c(schools), 8),
+           trees.nn = nn_function(vars_net_ccoid, st_c(trees), 8)) 
+  
+  # think about how to add binary variables 
+  vars_net <- vars_net %>% 
+    mutate(in_historic = ifelse())
+  # groceries, get centroids of block groups and map that on to the fishnet
+  # from groceries, get HPSS_ACCESS, TOTAL_RESTAURANTS, TOTAL_HPSS
+  # historic - binary variable 
+  # bike network - if bike network ran through 
+  
+  all_net <-
+    left_join(permit_net, st_drop_geometry(vars_net), by="uniqueID") 
+  
+  
+  # make a subset of the net with variables we're actually interested in putting in the model
+  subset_net <- all_net %>% 
+    dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
+                  thefts.nn,disorderly.nn) %>% 
+    rename(Thefts_from_Vehicle = `Theft from Vehicle`,
+           vacant_lots_buildings.nn = vacant_centroids.nn,
+           DUI.nn = dui.nn,
+           Thefts.nn = thefts.nn,
+           Disorderly_conduct.nn = disorderly.nn) %>% 
+    st_centroid() %>%
+    st_join(dplyr::select(nhoods, mapname)) %>%
+    st_drop_geometry() %>%
+    left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+    st_sf() %>%
+    na.omit()
+}
+
+# correlation matrix
+{
+  # making this moreso to see which would actually be good predictors
+  for_cormat <- all_net %>% 
+    st_drop_geometry() %>% 
+    # dplyr::select(countVand,Arson,arson.nn,`City Hall`,city_hall.nn,`Disorderly Conduct`,disorderly.nn, 
+    #               `DRIVING UNDER THE INFLUENCE`,dui.nn,`Parks and Rec`,ppr_sites.nn,`Public Drunkenness`,
+    #               public_drunk.nn,Schools,schools.nn,`Subway Stops`,septa_stops.nn,`Theft from Vehicle`,
+    #               theft_from_veh.nn,Thefts,thefts.nn,Vacants,vacant_centroids.nn)
+    dplyr::select(-c(uniqueID,cvID))
+  
+  ggcorrplot(
+    round(cor(for_cormat), 1), 
+    # method = "circle",
+    p.mat = cor_pmat(for_cormat),
+    colors = c("#4b2875", "white", "#9c1339"),
+    type="lower",
+    insig = "blank",
+    digits = 4,
+    lab = T, lab_size = 2) +  
+    labs(title = "Correlation",
+         caption = "Figure x.") 
+  
+  # strongest pred to keep: 
+  # 
 }
 
 # Data Exploration
