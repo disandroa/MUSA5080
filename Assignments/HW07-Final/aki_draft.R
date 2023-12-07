@@ -221,8 +221,46 @@ setwd("~/Documents/MUSA5080")
     mutate(in_historic = ifelse())
   # groceries, get centroids of block groups and map that on to the fishnet
   # from groceries, get HPSS_ACCESS, TOTAL_RESTAURANTS, TOTAL_HPSS
+  total_hpss <- st_join(groshies %>% dplyr::select(TOTAL_HPSS), fishnet) %>% 
+    group_by(uniqueID) %>% 
+    summarize(total_hpss = mean(TOTAL_HPSS,na.rm=T)) # take average 
+  
+  total_restaurants <- st_join(groshies %>% dplyr::select(TOTAL_RESTAURANTS), fishnet) %>% 
+    group_by(uniqueID) %>% 
+    summarize(total_restaurants = sum(TOTAL_RESTAURANTS,na.rm=T))
+  
+  groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)%>%
+    mutate(
+      value = replace_na(TOTAL_HPSS, 0),
+      UniqueID = 1:n(),
+      legend = "Total High Produce Stores")%>%
+    dplyr::select(legend, UniqueID, value, geometry)
+  groceryNet <- groceryNet%>%
+    st_drop_geometry()%>%
+    left_join(fishnet,groceryNet,by = "UniqueID")%>%
+    st_sf()
+  dplyr::select(legend, UniqueID, value, geometry)
+  
   # historic - binary variable 
+  historicNet <- st_join(st_centroid(fishnet),historicDist)%>%
+    mutate(
+      value = replace_na(name, "none"),
+      legend = "Historic Districts")%>%
+    select(legend, UniqueID, value, geometry)
+  historicNet <- historicNet%>%
+    st_drop_geometry()%>%
+    left_join(fishnet,historicNet,by = "UniqueID")%>%
+    st_sf()
+  dplyr::select(legend, UniqueID, value, geometry)
+  
   # bike network - if bike network ran through 
+  BikeNet <- st_join(fishnet,BikeData)%>%
+    mutate(
+      value = ifelse(innetwork == 1, 1,0),
+      legend = "Bike Network")%>%
+    select(legend, UniqueID, value, geometry)%>%
+    replace_na(list(value = 0))
+  
   
   all_net <-
     left_join(permit_net, st_drop_geometry(vars_net), by="uniqueID") 
