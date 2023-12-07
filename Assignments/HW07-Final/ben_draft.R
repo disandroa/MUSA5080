@@ -105,27 +105,27 @@ options(scipen=999)
     mutate(UniqueID = row_number())
 }
 ## Permit Reading
-{
-  #philly permit data
-  dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
-  # 
-  # # only keep new construction permits
-  newcon_permits <- dat_permit %>% 
-    filter(grepl("NEW CON|NEWCON",typeofwork)) %>% 
-    st_transform('ESRI:102728')
-  
-  # write out smaller geojson file
-  st_write(newcon_permits,"C:/Users/benja/Documents/GitHub/MUSA5080/Assignments/HW07-Final")
-  
-  rm(dat_permit)
-  
-  newcon_permits <- st_read("C:/Users/benja/Documents/GitHub/MUSA5080/Assignments/HW07-Finaldata/newcon_permits.geojson")
-  
-  # OPA housing permit data
-    # missing
-  }
-  
-
+# {
+#   #philly permit data
+#   dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+#   # 
+#   # # only keep new construction permits
+#   newcon_permits <- dat_permit %>% 
+#     filter(grepl("NEW CON|NEWCON",typeofwork)) %>% 
+#     st_transform('ESRI:102728')
+#   
+#   # write out smaller geojson file
+#   st_write(newcon_permits,"C:/Users/benja/Documents/GitHub/MUSA5080/Assignments/HW07-Final")
+#   
+#   rm(dat_permit)
+#   
+#   newcon_permits <- st_read("C:/Users/benja/Documents/GitHub/MUSA5080/Assignments/HW07-Finaldata/newcon_permits.geojson")
+#   
+#   # OPA housing permit data
+#     # missing
+#   }
+#   
+# 
 
 {
   permits <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")%>%
@@ -231,11 +231,19 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
 
 ## Grocery info
 ## https://opendataphilly.org/datasets/neighborhood-food-retail/
+# BEN: CHANGE THIS --> join the centroids of the grocery net to the fishnet, not the other way around. ALso make another variable for the total restaurants, and one for the low/no access va. moderate & high access (HPSS_ACCESS)
 { 
   GroceryInfo <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson")%>%
-    st_transform(crs=2272)%>%
-    dplyr::select(TOTAL_HPSS)
+    st_transform(crs=2272)
+    #dplyr::select(TOTAL_HPSS)
 }
+{
+ggplot()+
+    geom_sf(data = phl.nh)+
+    geom_sf(data=GroceryInfo, aes(fill = HPSS_ACCESS))
+}
+
+
 {
 groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)%>%
     mutate(
@@ -268,7 +276,9 @@ groceryNet <- groceryNet%>%
     select(legend, UniqueID, value, geometry)%>%
     replace_na(list(value = 0))
 }
-
+{ggplot()+
+    geom_sf(data=phl.nh)+
+    geom_sf(data=BikeNet, aes(fill=value))}
 
 ## Historic District (Assume negative relationship)
 {
@@ -302,7 +312,7 @@ final_net2 <- gather(st_drop_geometry(final_net), key = "UniqueID", value = "leg
 }
 # Moran's I
 {
-local_morans <- localmoran(permit, final_net.weights, zero.policy=TRUE) %>% 
+local_morans <- localmoran(permitnet, final_net.weights, zero.policy=TRUE) %>% 
   as.data.frame()
 }
 
@@ -310,7 +320,7 @@ local_morans <- localmoran(permit, final_net.weights, zero.policy=TRUE) %>%
 final_net.localMorans <- 
   cbind(local_morans, as.data.frame(final_net)) %>% 
   st_sf() %>%
-  dplyr::select(Abandoned_Cars_Count = Abandoned_Cars, 
+  dplyr::select(Permit_Count = legend, 
                 Local_Morans_I = Ii, 
                 P_Value = `Pr(z != E(Ii))`) %>%
   mutate(Significant_Hotspots = ifelse(P_Value <= 0.001, 1, 0)) %>%
