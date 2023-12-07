@@ -200,6 +200,7 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
     mutate(count_permits = replace_na(count_permits, 0),
            uniqueID = as.numeric(rownames(.)),
            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
+  #this accomplishes the cross fold validation, we need to 
   
   ggplot() +
     geom_sf(data = permit_net, aes(fill = count_permits)) +
