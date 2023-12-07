@@ -191,16 +191,16 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
       
       
 }
-{
-  SchoolDistNH <- schoolDistNet%>%
-  st_drop_geometry() %>%
-  group_by(name) %>%
-  summarise(avg_schoolDist = mean((schools1nn))) %>%
-  ungroup() %>%
-  dplyr::select(name,avg_schoolDist)%>%
-  left_join(phl.nh) %>%
-  st_as_sf()
-}
+# {
+#   SchoolDistNH <- schoolDistNet%>%
+#   st_drop_geometry() %>%
+#   group_by(name) %>%
+#   summarise(avg_schoolDist = mean((schools1nn))) %>%
+#   ungroup() %>%
+#   dplyr::select(name,avg_schoolDist)%>%
+#   left_join(phl.nh) %>%
+#   st_as_sf()
+# }
 # {
 #   schoolDistNet <-
 #   fishnet %>%
@@ -220,6 +220,14 @@ fishnet <- st_make_grid(cityLims,cellsize=500,crs = 2272, square = TRUE)%>%
   PPRLocs <- st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326")%>%
     st_transform(crs=2272)
 }
+{
+  ParkDistNet <- fishnet %>%
+    mutate(
+      value = nn_function(st_coordinates(st_centroid(fishnet)),  st_coordinates(PPRLocs), k = 3),
+      UniqueID = 1:n(),
+      legend = "3NN PPR Locations")%>%
+    dplyr::select(legend, UniqueID, value, geometry)
+}
 
 ## Grocery info
 ## https://opendataphilly.org/datasets/neighborhood-food-retail/
@@ -235,7 +243,11 @@ groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)%>%
       UniqueID = 1:n(),
       legend = "Total High Produce Stores")%>%
     dplyr::select(legend, UniqueID, value, geometry)
-  
+groceryNet <- groceryNet%>%
+  st_drop_geometry()%>%
+  left_join(fishnet,groceryNet,by = "UniqueID")%>%
+  st_sf()
+  dplyr::select(legend, UniqueID, value, geometry)
 }
 #still need to convert back to fishnets
 
@@ -270,9 +282,38 @@ groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)%>%
       value = replace_na(name, "none"),
       legend = "Historic Districts")%>%
     select(legend, UniqueID, value, geometry)
+  historicNet <- historicNet%>%
+    st_drop_geometry()%>%
+    left_join(fishnet,historicNet,by = "UniqueID")%>%
+    st_sf()
+  dplyr::select(legend, UniqueID, value, geometry)
 }
 
 # MAKE final net
+{
+final_net <- rbind(BikeNet,groceryNet,historicNet, ParkDistNet, schoolDistNet,Treenet, permitnet)
+final_net2 <- gather(st_drop_geometry(final_net), key = "UniqueID", value = "legend")
+  }
+# Weighting
+{
+  final_net.nb <- poly2nb(as_Spatial(permit), queen=TRUE)
+  ## ... and neighborhoods to list of weigths
+  final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE)
+}
+# Moran's I
+{
+local_morans <- localmoran(permit, final_net.weights, zero.policy=TRUE) %>% 
+  as.data.frame()
+}
 
-final_net <- rbind(BikeNet,groceryNet,historicNet,schoolDistNet,Treenet, permitnet)
-#have to make all o the column names the same
+# join local Moran's I results to fishnet
+final_net.localMorans <- 
+  cbind(local_morans, as.data.frame(final_net)) %>% 
+  st_sf() %>%
+  dplyr::select(Abandoned_Cars_Count = Abandoned_Cars, 
+                Local_Morans_I = Ii, 
+                P_Value = `Pr(z != E(Ii))`) %>%
+  mutate(Significant_Hotspots = ifelse(P_Value <= 0.001, 1, 0)) %>%
+  gather(Variable, Value, -geometry)
+
+
