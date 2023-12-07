@@ -217,70 +217,61 @@ setwd("~/Documents/MUSA5080")
            trees.nn = nn_function(vars_net_ccoid, st_c(trees), 8)) 
   
   # think about how to add binary variables 
-  vars_net <- vars_net %>% 
-    mutate(in_historic = ifelse())
   # groceries, get centroids of block groups and map that on to the fishnet
-  # from groceries, get HPSS_ACCESS, TOTAL_RESTAURANTS, TOTAL_HPSS
+  # from groceries, get HPSS_ACCESS (gave up on this one because it's categorical), TOTAL_RESTAURANTS, TOTAL_HPSS
   total_hpss <- st_join(groshies %>% dplyr::select(TOTAL_HPSS), fishnet) %>% 
     group_by(uniqueID) %>% 
-    summarize(total_hpss = mean(TOTAL_HPSS,na.rm=T)) # take average 
+    summarize(total_hpss = mean(TOTAL_HPSS,na.rm=T)) %>%  # take average because there might be some overlap if a fishnet encompasses ceentroids of multiple block groups.
+    mutate(total_hpss = ifelse(is.nan(total_hpss), NA, total_hpss)) %>% 
+    st_drop_geometry()
   
   total_restaurants <- st_join(groshies %>% dplyr::select(TOTAL_RESTAURANTS), fishnet) %>% 
     group_by(uniqueID) %>% 
-    summarize(total_restaurants = sum(TOTAL_RESTAURANTS,na.rm=T))
-  
-  groceryNet <- st_join(st_centroid(fishnet),GroceryInfo)%>%
-    mutate(
-      value = replace_na(TOTAL_HPSS, 0),
-      UniqueID = 1:n(),
-      legend = "Total High Produce Stores")%>%
-    dplyr::select(legend, UniqueID, value, geometry)
-  groceryNet <- groceryNet%>%
-    st_drop_geometry()%>%
-    left_join(fishnet,groceryNet,by = "UniqueID")%>%
-    st_sf()
-  dplyr::select(legend, UniqueID, value, geometry)
+    summarize(total_restaurants = sum(TOTAL_RESTAURANTS,na.rm=T)) %>% 
+    st_drop_geometry()
   
   # historic - binary variable 
-  historicNet <- st_join(st_centroid(fishnet),historicDist)%>%
-    mutate(
-      value = replace_na(name, "none"),
-      legend = "Historic Districts")%>%
-    select(legend, UniqueID, value, geometry)
-  historicNet <- historicNet%>%
-    st_drop_geometry()%>%
-    left_join(fishnet,historicNet,by = "UniqueID")%>%
-    st_sf()
-  dplyr::select(legend, UniqueID, value, geometry)
+  # find fishnet squares that intersect with historicDistricts
+  sqr_ishistoric <- st_intersection(fishnet,historicDist)$uniqueID # vector of uniqueIDs that intersect with a historic district
   
   # bike network - if bike network ran through 
-  BikeNet <- st_join(fishnet,BikeData)%>%
-    mutate(
-      value = ifelse(innetwork == 1, 1,0),
-      legend = "Bike Network")%>%
-    select(legend, UniqueID, value, geometry)%>%
-    replace_na(list(value = 0))
+  bike_net <- st_join(fishnet, bikes) %>%
+    group_by(uniqueID) %>%
+    summarise(objects = sum(OBJECTID)) %>% 
+    mutate(in_bike_net = ifelse(!is.na(objects), 1,0)) %>% 
+    dplyr::select(uniqueID, in_bike_net) %>%
+    st_drop_geometry()
   
+  # checking the bike_net code
+  # ggplot() + 
+  #   geom_sf(data = fishnet) +
+  #   geom_sf(data = bikes, aes(color = CLASS)) + scale_color_gradient(low = "yellow",high = "red")
   
+  # vars_net with groshies, historic, bike_net added
+  vars_net1 <- cbind(vars_net, 
+                     total_hpss %>% dplyr::select(-uniqueID), 
+                     total_restaurants %>% dplyr::select(-uniqueID), 
+                     bike_net %>% dplyr::select(-uniqueID))
+    
   all_net <-
-    left_join(permit_net, st_drop_geometry(vars_net), by="uniqueID") 
+    left_join(permit_net, st_drop_geometry(vars_net1), by="uniqueID") 
   
-  
+  # CODE BELOW IS PASTED FROM OLD CODE, NEED TO EDIT DEPENDING ON THE PREDICTORS WE WANT TO KEEP FOR THE MODEL
   # make a subset of the net with variables we're actually interested in putting in the model
-  subset_net <- all_net %>% 
-    dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
-                  thefts.nn,disorderly.nn) %>% 
-    rename(Thefts_from_Vehicle = `Theft from Vehicle`,
-           vacant_lots_buildings.nn = vacant_centroids.nn,
-           DUI.nn = dui.nn,
-           Thefts.nn = thefts.nn,
-           Disorderly_conduct.nn = disorderly.nn) %>% 
-    st_centroid() %>%
-    st_join(dplyr::select(nhoods, mapname)) %>%
-    st_drop_geometry() %>%
-    left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
-    st_sf() %>%
-    na.omit()
+  # subset_net <- all_net %>% 
+  #   dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
+  #                 thefts.nn,disorderly.nn) %>% 
+  #   rename(Thefts_from_Vehicle = `Theft from Vehicle`,
+  #          vacant_lots_buildings.nn = vacant_centroids.nn,
+  #          DUI.nn = dui.nn,
+  #          Thefts.nn = thefts.nn,
+  #          Disorderly_conduct.nn = disorderly.nn) %>% 
+  #   st_centroid() %>%
+  #   st_join(dplyr::select(nhoods, mapname)) %>%
+  #   st_drop_geometry() %>%
+  #   left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+  #   st_sf() %>%
+  #   na.omit()
 }
 
 # correlation matrix
