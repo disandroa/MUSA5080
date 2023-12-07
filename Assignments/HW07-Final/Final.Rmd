@@ -218,6 +218,9 @@ schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee7
 
 
 
+# IDEA! it would be nice if we could have an animated plot demonstrating how permit count changed every year + another one of how neighborhood haverages of medHHincome chnaged over those same years. maybe even put on the same map if possible?
+
+
 #### Figure 1. Vandalism in Philadelphia (2021)
 
 ```{r fig1/outcome map}
