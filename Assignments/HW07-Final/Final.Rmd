@@ -25,6 +25,8 @@ library(kableExtra)
 library(spatstat.explore)
 library(raster)
 library(classInt)
+#devtools::install_github("CityOfPhiladelphia/rphl")
+library(rphl)
 
 set.seed(172)
 
@@ -39,8 +41,8 @@ philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e14
   dplyr::select(OBJECTID,geometry)
 
 # read incidents file
-incidents21 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_21/incidents_part1_part2.shp") %>% 
-  st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+# incidents21 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_21/incidents_part1_part2.shp") %>% 
+#   st_transform('ESRI:102728') %>% rename(Legend = text_gener)
 
 carto_url = "https://phl.carto.com/api/v2/sql"
 
@@ -48,13 +50,19 @@ carto_url = "https://phl.carto.com/api/v2/sql"
 table_name = "incidents_part1_part2"
 
 # query
-where = "dispatch_date >= '2022-01-01' AND dispatch_date < '2023-01-01' AND text_general_code IN ('Aggravated Assault Firearm', 'Aggravated Assault No Firearm', 'Vandalism/Criminal Mischief')"
+where = "dispatch_date >= '2022-01-01' AND dispatch_date < '2023-01-01' AND text_general_code IN ('DRIVING UNDER THE INFLUENCE','Theft from Vehicle','Thefts','Disorderly Conduct','Public Drunkenness', 'Arson', 'Vandalism/Criminal Mischief')"
 
 query = paste("SELECT *",
               "FROM", table_name,
               "WHERE", where)
 
-crime = rphl::get_carto(query, format = "csv", base_url = carto_url, stringsAsFactors = F)
+incidents21 = rphl::get_carto(query, format = "csv", base_url = carto_url, stringsAsFactors = F)%>%
+   rename(Legend = text_general_code)
+incidents21 <- incidents21 %>%
+   filter(!is.na(point_x) & !is.na(point_y)) %>%
+   st_as_sf(coords = c("point_x","point_y"),crs=4326) %>%
+     st_transform('ESRI:102728') %>%
+   dplyr::select(Legend, geometry)
 
 
 # filter to only keep vandalism incidents
@@ -212,7 +220,7 @@ city_hall <- bsl %>%
   dplyr::select(Legend)
 
 # schools
-schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
+schools <- st_read("https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson") %>% 
   st_transform('ESRI:102728') %>% 
   mutate(Legend = "Schools") %>% 
   dplyr::select(Legend)
@@ -741,11 +749,35 @@ vand_KD.df$Legend <- factor(vand_KD.df$Legend, levels = c("1000 Ft.", "1500 Ft."
 
 
 # download data from 2022
-incidents22 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_22/incidents_part1_part2.shp") %>% 
-  st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+# incidents22 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_22/incidents_part1_part2.shp") %>% 
+#   st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+# 
+
+carto_url = "https://phl.carto.com/api/v2/sql"
+
+# Crime incidents
+table_name = "incidents_part1_part2"
+
+# query
+where2 = "dispatch_date >= '2022-01-01' AND dispatch_date < '2023-01-01' AND text_general_code IN ('DRIVING UNDER THE INFLUENCE','Theft from Vehicle','Thefts','Disorderly Conduct','Public Drunkenness', 'Arson', 'Vandalism/Criminal Mischief')"
+
+query2 = paste("SELECT *",
+              "FROM", table_name,
+              "WHERE", where)
+
+incidents22 = rphl::get_carto(query2, format = "csv", base_url = carto_url, stringsAsFactors = F)%>%
+   rename(Legend = text_general_code)
+incidents22 <- incidents22 %>%
+   filter(!is.na(point_x) & !is.na(point_y)) %>%
+   st_as_sf(coords = c("point_x","point_y"),crs=4326) %>%
+     st_transform('ESRI:102728') %>%
+   dplyr::select(Legend, geometry)
+
+
+
 
 # filter to only keep vandalism incidents
-vandalism22 <- incidents21 %>% filter(Legend == "Vandalism/Criminal Mischief") %>% 
+vandalism22 <- incidents22 %>% filter(Legend == "Vandalism/Criminal Mischief") %>% 
   .[fishnet,]
 
 
