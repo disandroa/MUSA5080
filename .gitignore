@@ -7,3 +7,5 @@ Textbook/
 sample-portfolio/
 .Rproj
 newcon_permits.geojson
+results_for_ppt/
+.DS_Store

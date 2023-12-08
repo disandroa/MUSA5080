@@ -1,5 +1,5 @@
 ---
-title: "Final"
+title: "Predicting Gentrification in Philadelphia"
 author: "Akira Di Sandro & Benjamin Myers"
 date: "2023-12-15"
 output: 
@@ -36,19 +36,19 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 ```{r data download + wrangling, results='hide'}
 # philly permit data
-  dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
-  # 
-  # # only keep new construction permits
-  newcon_permits <- dat_permit %>%
-    filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
-    st_transform(crs = 2272)
+  # dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+  # # 
+  # # # only keep new construction permits
+  # newcon_permits <- dat_permit %>%
+  #   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
+  #   st_transform(crs = 2272)
   
   # write out smaller geojson file
   # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
   
   # rm(dat_permit)
   
-  # newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") %>% 
+  newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") #%>%
   #   st_transform(crs = 2272)
   # for some reason, points are coming out as empty from this geojson
   # this timee it worked?? idk what's going on
@@ -272,9 +272,11 @@ bike_net <- st_join(fishnet, bikes) %>%
 
 # vars_net with groshies, historic, bike_net added
 vars_net1 <- cbind(vars_net, 
-                   total_hpss %>% dplyr::select(-uniqueID), 
-                   total_restaurants %>% dplyr::select(-uniqueID), 
-                   bike_net %>% dplyr::select(-uniqueID))
+                     total_hpss %>% dplyr::select(-uniqueID), 
+                     total_restaurants %>% dplyr::select(-uniqueID), 
+                     bike_net %>% dplyr::select(-uniqueID)) %>% 
+    mutate(is_historic = ifelse(uniqueID %in% sqr_ishistoric, 1, 0),
+           total_hpss = ifelse(is.na(total_hpss), 0, total_hpss))
 
 ```
 
@@ -283,10 +285,8 @@ vars_net1 <- cbind(vars_net,
 
 
 ```{r final_net}
-all_net <-
-  left_join(permit_net, st_drop_geometry(vars_net1), by="uniqueID") 
+all_net <- left_join(permit_net, st_drop_geometry(vars_net1), by="uniqueID")
 
-# CODE BELOW IS PASTED FROM OLD CODE, NEED TO EDIT DEPENDING ON THE PREDICTORS WE WANT TO KEEP FOR THE MODEL
 # make a subset of the net with variables we're actually interested in putting in the model
 # subset_net <- all_net %>% 
 #   dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
@@ -309,28 +309,28 @@ all_net <-
 
 ```{r fig3/correlation matrix}
 # making this moreso to see which would actually be good predictors
-  for_cormat <- all_net %>% 
-    st_drop_geometry() %>% 
-    # dplyr::select(countVand,Arson,arson.nn,`City Hall`,city_hall.nn,`Disorderly Conduct`,disorderly.nn, 
-    #               `DRIVING UNDER THE INFLUENCE`,dui.nn,`Parks and Rec`,ppr_sites.nn,`Public Drunkenness`,
-    #               public_drunk.nn,Schools,schools.nn,`Subway Stops`,septa_stops.nn,`Theft from Vehicle`,
-    #               theft_from_veh.nn,Thefts,thefts.nn,Vacants,vacant_centroids.nn)
-    dplyr::select(-c(uniqueID,cvID))
-  
-  ggcorrplot(
-    round(cor(for_cormat), 1), 
-    # method = "circle",
-    p.mat = cor_pmat(for_cormat),
-    colors = c("#4b2875", "white", "#9c1339"),
-    type="lower",
-    insig = "blank",
-    digits = 4,
-    lab = T, lab_size = 2) +  
-    labs(title = "Correlation",
-         caption = "Figure x.") 
-  
-  # strongest pred to keep: 
-  # 
+for_cormat <- all_net %>% 
+  st_drop_geometry() %>% 
+  # dplyr::select(countVand,Arson,arson.nn,`City Hall`,city_hall.nn,`Disorderly Conduct`,disorderly.nn, 
+  #               `DRIVING UNDER THE INFLUENCE`,dui.nn,`Parks and Rec`,ppr_sites.nn,`Public Drunkenness`,
+  #               public_drunk.nn,Schools,schools.nn,`Subway Stops`,septa_stops.nn,`Theft from Vehicle`,
+  #               theft_from_veh.nn,Thefts,thefts.nn,Vacants,vacant_centroids.nn)
+  dplyr::select(-c(uniqueID,cvID))
+
+ggcorrplot(
+  round(cor(for_cormat), 1), 
+  # method = "circle",
+  p.mat = cor_pmat(for_cormat),
+  colors = c("#4b2875", "white", "#9c1339"),
+  type="lower",
+  insig = "blank",
+  digits = 4,
+  lab = T, lab_size = 2) +  
+  labs(title = "Correlation",
+       caption = "Figure x.") 
+
+# strongest pred to keep: 
+# 
 ```
 
 ### Spatial Process of Vandalism

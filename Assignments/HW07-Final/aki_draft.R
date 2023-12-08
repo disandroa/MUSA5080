@@ -29,19 +29,20 @@ setwd("~/Documents/MUSA5080")
 # load data ----
 {
   # philly permit data
-  dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+  # dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+  #
+  # only keep new construction permits
+  # newcon_permits <- dat_permit %>%
+  #   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
+  #   st_transform(crs = 2272)
   # 
-  # # only keep new construction permits
-  newcon_permits <- dat_permit %>%
-    filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
-    st_transform(crs = 2272)
-  
   # write out smaller geojson file
   # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
   
   # rm(dat_permit)
   
-  # newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") %>% 
+  newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") 
+  # %>%
   #   st_transform(crs = 2272)
   # for some reason, points are coming out as empty from this geojson
   # this timee it worked?? idk what's going on
@@ -251,7 +252,8 @@ setwd("~/Documents/MUSA5080")
   vars_net1 <- cbind(vars_net, 
                      total_hpss %>% dplyr::select(-uniqueID), 
                      total_restaurants %>% dplyr::select(-uniqueID), 
-                     bike_net %>% dplyr::select(-uniqueID))
+                     bike_net %>% dplyr::select(-uniqueID)) %>% 
+    mutate(is_historic = ifelse(uniqueID %in% sqr_ishistoric, 1, 0))
     
   all_net <-
     left_join(permit_net, st_drop_geometry(vars_net1), by="uniqueID") 
