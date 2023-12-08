@@ -30,137 +30,141 @@ library(rphl)
 
 set.seed(172)
 
+setwd("~/Documents/MUSA5080")
+
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
 ```
 
 ```{r data download + wrangling, results='hide'}
 # philly permit data
-  # dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
-  # # 
-  # # # only keep new construction permits
-  # newcon_permits <- dat_permit %>%
-  #   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
-  #   st_transform(crs = 2272)
-  
-  # write out smaller geojson file
-  # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
-  
-  # rm(dat_permit)
-  
-  newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") #%>%
-  #   st_transform(crs = 2272)
-  # for some reason, points are coming out as empty from this geojson
-  # this timee it worked?? idk what's going on
-  
-  # census data
-  # variables of interest:
-  # B19013_001 - medHHincome
-  # B25026_001 - total pop 
-  # B02001_002 - white pop
-  # med home value (if possible)
-  # B25058_001 - median rent
-  # B15003_022 - attainment of bachelor's of population 25+
-  acs_variable_list.2021 <- load_variables(2021, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  census_vars <- c("B25026_001E","B15003_022E","B19013_001E","B02001_002E","B02001_002E","B25058_001E") # census variables of interest 
-  tracts21 <- 
-    get_acs(geography = "tract", 
-            variables = census_vars, 
-            year = 2021, state = 42,
-            geometry = T, output = "wide") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(!matches("M$")) %>% 
-    rename(total_pop = B25026_001E, 
-           bachelors25 = B15003_022E, 
-           white_pop = B02001_002E, 
-           medHHinc = B19013_001E, 
-           med_rent = B25058_001E) %>%
-    mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
-           year = "2021")
-  
-  # philly neighborhood data
-  nhoods_path <- 'https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson'
-  nhoods <- st_read(nhoods_path, quiet = T) %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(mapname)
-  
-  # philly bounds
-  philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
-    st_transform(crs = 2272) %>% 
-    dplyr::select(OBJECTID,geometry)
-  
-  # vacant lots/buildings
-  vacant_centroids <- st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
-    st_transform(crs = 2272) %>% 
-    st_centroid() %>%
-    mutate(Legend = "Vacants") %>%
-    dplyr::select(Legend)
-  
-  # parks & rec
-  ppr_sites <- st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% 
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Parks and Rec") %>%
-    dplyr::select(Legend)
-  
-  # transit stops
-  el <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
-    st_transform(crs = 2272)
-  bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
-    st_transform(crs = 2272)
-  
-  septaStops <-
-    rbind(
-      el %>%
-        mutate(Line = "El") %>%
-        dplyr::select(Station, Line),
-      bsl %>%
-        mutate(Line ="Broad_St") %>%
-        dplyr::select(Station, Line)) %>%
-    st_transform(crs = 2272) %>%
-    mutate(Legend = "Subway Stops") %>%
-    dplyr::select(Legend)
-  
-  # proximity to CBD using city_hall as proxy
-  city_hall <- bsl %>%
-    st_transform(crs = 2272) %>%
-    filter(Station=="City Hall") %>%
-    mutate(Legend = "City Hall") %>%
-    dplyr::select(Legend)
-  
-  # schools
-  schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Schools") %>% 
-    dplyr::select(Legend)
-  
-  # trees
-  trees <- st_read("https://opendata.arcgis.com/api/v3/datasets/30ef36e9e880468fa74e2d5b18da4cfb_0/downloads/data?format=geojson&spatialRefId=4326") %>%
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Trees") %>% 
-    dplyr::select(Legend)
-  
-  # grocery stores (last updated 2019)
-  # this data is already in a count per block group format
-  groshies <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson") %>%
-    st_transform(crs = 2272) #%>%
-    # dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
-  # TOTAL_HPSS = Total number of high-produce supply stores within a half mile walking distance of the block group
-  
-  # bike info
-  # use as count or binary data (does this square in the fishnet have a street that is bike-accessible in it?)
-  bikes <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson") %>%
-    st_transform(crs = 2272) %>%
-    mutate(Legend = "Bike Network") #%>%
-    # dplyr::select(Legend)
-  
-  # historic districts
-  # use as binary (is the centroid of the fishnet square in one of these historic districts?)
-  historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(name)
+dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
+#
+# # only keep new construction permits
+newcon_permits <- dat_permit %>%
+  filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
+  st_transform(crs = 2272)
+
+# write out smaller geojson file
+# st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
+
+# rm(dat_permit)
+
+# newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") #%>%
+#   st_transform(crs = 2272)
+# for some reason, points are coming out as empty from this geojson
+# this timee it worked?? idk what's going on
+
+# census data
+# variables of interest:
+# B19013_001 - medHHincome
+# B25026_001 - total pop 
+# B02001_002 - white pop
+# med home value (if possible)
+# B25058_001 - median rent
+# B15003_022 - attainment of bachelor's of population 25+
+acs_variable_list.2021 <- load_variables(2021, #year
+                                         "acs5", #five year ACS estimates
+                                         cache = TRUE)
+
+census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E") # census variables of interest 
+tracts21 <- 
+  get_acs(geography = "block group", 
+          variables = census_vars, 
+          year = 2021, state = 42,
+          geometry = T, output = "wide") %>%
+  st_transform(crs = 2272) %>%
+  dplyr::select(!matches("M$")) %>% 
+  rename(total_pop = B01001_001E,
+         white_pop = B02001_002E,
+         bachelors25 = B15003_022E,
+         med_hh_inc = B19013_001E,
+         med_rent = B25058_001E) %>%
+  mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+         RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                              ifelse(total_pop != 0 , "Majority non-White", NA)),
+         year = "2021")
+
+# philly neighborhood data
+nhoods_path <- 'https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson'
+nhoods <- st_read(nhoods_path, quiet = T) %>%
+  st_transform(crs = 2272) %>%
+  dplyr::select(mapname)
+
+# philly bounds
+philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
+  st_transform(crs = 2272) %>% 
+  dplyr::select(OBJECTID,geometry)
+
+# vacant lots/buildings
+vacant_centroids <- st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
+  st_transform(crs = 2272) %>% 
+  st_centroid() %>%
+  mutate(Legend = "Vacants") %>%
+  dplyr::select(Legend)
+
+# parks & rec
+ppr_sites <- st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% 
+  st_transform(crs = 2272) %>% 
+  mutate(Legend = "Parks and Rec") %>%
+  dplyr::select(Legend)
+
+# transit stops
+el <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
+  st_transform(crs = 2272)
+bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
+  st_transform(crs = 2272)
+
+septaStops <-
+  rbind(
+    el %>%
+      mutate(Line = "El") %>%
+      dplyr::select(Station, Line),
+    bsl %>%
+      mutate(Line ="Broad_St") %>%
+      dplyr::select(Station, Line)) %>%
+  st_transform(crs = 2272) %>%
+  mutate(Legend = "Subway Stops") %>%
+  dplyr::select(Legend)
+
+# proximity to CBD using city_hall as proxy
+city_hall <- bsl %>%
+  st_transform(crs = 2272) %>%
+  filter(Station=="City Hall") %>%
+  mutate(Legend = "City Hall") %>%
+  dplyr::select(Legend)
+
+# schools
+schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
+  st_transform(crs = 2272) %>% 
+  mutate(Legend = "Schools") %>% 
+  dplyr::select(Legend)
+
+# trees
+trees <- st_read("https://opendata.arcgis.com/api/v3/datasets/30ef36e9e880468fa74e2d5b18da4cfb_0/downloads/data?format=geojson&spatialRefId=4326") %>%
+  st_transform(crs = 2272) %>% 
+  mutate(Legend = "Trees") %>% 
+  dplyr::select(Legend)
+
+# grocery stores (last updated 2019)
+# this data is already in a count per block group format
+groshies <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson") %>%
+  st_transform(crs = 2272) #%>%
+  # dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
+# TOTAL_HPSS = Total number of high-produce supply stores within a half mile walking distance of the block group
+
+# bike info
+# use as count or binary data (does this square in the fishnet have a street that is bike-accessible in it?)
+bikes <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson") %>%
+  st_transform(crs = 2272) %>%
+  mutate(Legend = "Bike Network") #%>%
+  # dplyr::select(Legend)
+
+# historic districts
+# use as binary (is the centroid of the fishnet square in one of these historic districts?)
+historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
+  st_transform(crs = 2272) %>%
+  dplyr::select(name)
 ```
 
 ## Introduction
@@ -288,20 +292,14 @@ vars_net1 <- cbind(vars_net,
 all_net <- left_join(permit_net, st_drop_geometry(vars_net1), by="uniqueID")
 
 # make a subset of the net with variables we're actually interested in putting in the model
-# subset_net <- all_net %>% 
-#   dplyr::select(countVand,uniqueID,cvID,Arson,`Theft from Vehicle`,vacant_centroids.nn,dui.nn,
-#                 thefts.nn,disorderly.nn) %>% 
-#   rename(Thefts_from_Vehicle = `Theft from Vehicle`,
-#          vacant_lots_buildings.nn = vacant_centroids.nn,
-#          DUI.nn = dui.nn,
-#          Thefts.nn = thefts.nn,
-#          Disorderly_conduct.nn = disorderly.nn) %>% 
-#   st_centroid() %>%
-#   st_join(dplyr::select(nhoods, mapname)) %>%
-#   st_drop_geometry() %>%
-#   left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
-#   st_sf() %>%
-#   na.omit()
+# add neighborhood names to data
+subset_net <- all_net %>%
+  st_centroid() %>%
+  st_join(dplyr::select(nhoods, mapname)) %>%
+  st_drop_geometry() %>%
+  left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+  st_sf() %>%
+  na.omit()
 
 ```
 
@@ -311,10 +309,6 @@ all_net <- left_join(permit_net, st_drop_geometry(vars_net1), by="uniqueID")
 # making this moreso to see which would actually be good predictors
 for_cormat <- all_net %>% 
   st_drop_geometry() %>% 
-  # dplyr::select(countVand,Arson,arson.nn,`City Hall`,city_hall.nn,`Disorderly Conduct`,disorderly.nn, 
-  #               `DRIVING UNDER THE INFLUENCE`,dui.nn,`Parks and Rec`,ppr_sites.nn,`Public Drunkenness`,
-  #               public_drunk.nn,Schools,schools.nn,`Subway Stops`,septa_stops.nn,`Theft from Vehicle`,
-  #               theft_from_veh.nn,Thefts,thefts.nn,Vacants,vacant_centroids.nn)
   dplyr::select(-c(uniqueID,cvID))
 
 ggcorrplot(
@@ -333,7 +327,7 @@ ggcorrplot(
 # 
 ```
 
-### Spatial Process of Vandalism
+### Spatial Process of Permit Count
 
 Another interesting feature to add to the model is one that can help us define the spatial process of vandalism in Philadelphia. One tool to examine spatial process is local Moran's *I*, which helps us understand whether the vandalism count at a certain location is randomly distributed or clustered relative to its immediate neighbors.
 
@@ -362,21 +356,21 @@ The most important validity measure of a geospatial risk prediction model is the
 #### Figure 4. Risk Factors in final model
 
 ```{r fig4/small mult map, fig.height=15}
-vars_net.long <- gather(subset_net %>% dplyr::select(-countVand),
+vars_net.long <- gather(subset_net %>% dplyr::select(-count_permits),
                         variable, value, -geometry, -uniqueID, -cvID, -mapname)
 
 vars <- unique(vars_net.long$variable)
 varList <- list()
 
-for(i in vars){
-  varList[[i]] <- 
-    ggplot() +
+for (i in vars) {
+  varList[[i]] <- ggplot() +
       geom_sf(data = filter(vars_net.long, variable == i),aes(fill = value), colour=NA) +
-      scale_fill_viridis(name="") +
-      labs(title=i) +
-      mapTheme(title_size = 14) + theme(legend.position="bottom")}
+      scale_fill_viridis(name = "") +
+      labs(title = i) +
+      mapTheme(title_size = 14) + theme(legend.position="bottom")
+  }
 
-do.call(grid.arrange,c(varList, ncol = 2, top = "Risk Factors for Vandalism (on fishnet)", bottom = "Figure 4."))
+do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
 ```
 
 [description of figure 5]
@@ -387,14 +381,14 @@ final_net.nb <- poly2nb(as_Spatial(subset_net), queen=TRUE)
 final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE) # turn neighborhood weights into list of weights
 
 
-local_morans <- localmoran(subset_net$countVand, final_net.weights, zero.policy=TRUE) %>%
+local_morans <- localmoran(subset_net$count_permits, final_net.weights, zero.policy=TRUE) %>%
   as.data.frame() # Ii moran's I at ith cell, Ei expected/mean from neighbors
 
 # join local Moran's I results to fishnet
 final_net.localMorans <- 
   cbind(local_morans, as.data.frame(subset_net)) %>% 
   st_sf() %>%
-  dplyr::select(`Vandalism Count` = countVand, 
+  dplyr::select(`Permit Count` = count_permits, 
                 `Local Morans I` = Ii, 
                 `P Value` = `Pr(z != E(Ii))`) %>%
   mutate(`Significant Hotspots` = ifelse(`P Value` <= 0.001, 1, 0)) %>%
@@ -410,20 +404,21 @@ for(i in vars){
       geom_sf(data = filter(final_net.localMorans, variable == i),aes(fill = value), colour=NA) +
       scale_fill_viridis(name="") +
       labs(title=i) +
-      mapTheme(title_size = 14) + theme(legend.position="bottom")}
+      mapTheme(title_size = 14) + theme(legend.position="bottom")
+  }
 
-do.call(grid.arrange,c(varList, ncol = 2, top = "Local Moran's I Statistics for Vandalism in Philadelphia", 
-                       bottom = "Figure 5."))
+do.call(grid.arrange,c(varList, ncol = 2, top = "Local Moran's I Statistics for Permit Count in Philadelphia", 
+                       bottom = "Figure x."))
 
 final_net <-
   subset_net %>% 
-  mutate(vandalism.isSig = 
-           ifelse(localmoran(subset_net$countVand, 
+  mutate(permitct.isSig = 
+           ifelse(localmoran(subset_net$count_permits, 
                              final_net.weights)[,5] <= 0.0000001, 1, 0)) %>%
-  mutate(vandalism.isSig.dist = 
+  mutate(permitct.isSig.dist = 
            nn_function(st_coordinates(st_centroid(subset_net)),
                        st_coordinates(st_centroid(
-                         filter(subset_net, vandalism.isSig == 1))), 1))
+                         filter(subset_net, permitct.isSig == 1))), 1))
 
 ```
 
@@ -436,21 +431,21 @@ final_net <-
 correlation.long <-
   st_drop_geometry(final_net) %>%
     dplyr::select(-uniqueID, -cvID, -mapname) %>%
-    gather(variable, value, -countVand)
+    gather(variable, value, -count_permits)
 
 correlation.cor <-
   correlation.long %>%
     group_by(variable) %>%
-    summarize(correlation = cor(value, countVand, use = "complete.obs"))
+    summarize(correlation = cor(value, count_permits, use = "complete.obs"))
     
-ggplot(correlation.long, aes(value, countVand)) +
+ggplot(correlation.long, aes(value, count_permits)) +
   geom_point(size = 0.1) +
   geom_text(data = correlation.cor, aes(label = paste("r =", round(correlation, 2))),
             x=-Inf, y=Inf, vjust = 1.5, hjust = -.1) +
   geom_smooth(method = "lm", se = FALSE, colour = "black") +
-  facet_wrap(~variable, ncol = 2, scales = "free") +
-  labs(title = "Vandalism count as a function of risk factors",
-       caption = "Figure 6.") +
+  facet_wrap(~variable, ncol = 4, scales = "free") +
+  labs(title = "Permit count as a function of predictors",
+       caption = "Figure x.") +
   plotTheme(title_size = 14)
 ```
 
@@ -458,71 +453,69 @@ ggplot(correlation.long, aes(value, countVand)) +
 
 #### Figure 7, Distribution of Vandalism count
 ```{r fig7/hist}
-final_net %>% ggplot(aes(x = countVand)) +
+final_net %>% ggplot(aes(x = count_permits)) +
   geom_histogram(bins = 66) +
   theme_minimal() +
-  labs(title = "Vandalism Distribution",
-       x = "Incidents of Vandalism", y = "Count",
-       caption = "Figure 7.")
+  labs(title = "Permit Distribution",
+       x = "Count of New Construction Permits", y = "Count",
+       caption = "Figure x.")
 ```
 
 ```{r models, results='hide'}
 # just risk factors
-# reg.vars <- c("Arson", "Thefts_from_Vehicle", "vacant_lots_buildings.nn", "DUI.nn",
-#               "Thefts.nn", "Disorderly_conduct.nn")
-# 
-# ## RUN REGRESSIONS
-# reg.CV <- crossValidate(
-#   dataset = final_net,
-#   id = "cvID",                           
-#   dependentVariable = "countVand",
-#   indVariables = reg.vars) %>% 
-#     mutate(error = countVand - Prediction)
-# 
-# # MAE
-# reg.MAE <- mean(abs(reg.CV$error)) # 3.730237
+reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants")
+
+## RUN REGRESSIONS
+reg.CV <- crossValidate(
+  dataset = final_net,
+  id = "cvID",
+  dependentVariable = "count_permits",
+  indVariables = reg.vars) %>%
+    mutate(error = count_permits - Prediction)
+
+# MAE
+reg.MAE <- mean(abs(reg.CV$error)) # 45.08406
 
 
 # with local Moran's I spatial process features
-reg.sp.vars <- c("Arson", "Thefts_from_Vehicle", "vacant_lots_buildings.nn", "DUI.nn",
-                 "Thefts.nn", "Disorderly_conduct.nn","vandalism.isSig", "vandalism.isSig.dist")
+reg.sp.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants","permitct.isSig", "permitct.isSig.dist")
 
 ## RUN REGRESSIONS
 reg.spatialCV <- crossValidate(
   dataset = final_net,
   id = "cvID",                           
-  dependentVariable = "countVand",
+  dependentVariable = "count_permits",
   indVariables = reg.sp.vars) %>% 
-    dplyr::select(cvID, countVand, Prediction, geometry)
-    # mutate(error = countVand - Prediction)
+    dplyr::select(cvID, count_permits, Prediction, geometry) %>% 
+    mutate(error = count_permits - Prediction)
 
 # MAE
-# reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # 3.63178 
+reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # 36.35607
 
 
 # adding neighborhood for LOGO CV, risk factors only
-# reg.logoCV <- crossValidate(
-#   dataset = final_net,
-#   id = "mapname",                           
-#   dependentVariable = "countVand",
-#   indVariables = reg.vars) %>% 
-#     mutate(error = countVand - Prediction)
-# 
-# # MAE
-# reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 3.742847
+reg.logoCV <- crossValidate(
+  dataset = final_net,
+  id = "mapname",
+  dependentVariable = "count_permits",
+  indVariables = reg.vars) %>%
+    mutate(error = count_permits - Prediction)
+
+# MAE
+reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 46.49673
 
 
 # adding neighborhood for LOGO CV, risk factors + spatial process
 reg.logo.spatialCV <- crossValidate(
   dataset = final_net,
   id = "mapname",                           
-  dependentVariable = "countVand",
+  dependentVariable = "count_permits",
   indVariables = reg.sp.vars) %>% 
-    dplyr::select(cvID = mapname, countVand, Prediction, geometry)
-    # mutate(error = countVand - Prediction)
+    dplyr::select(cvID = mapname, count_permits, Prediction, geometry) %>% 
+    mutate(error = count_permits - Prediction)
 
 # MAE
-# reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 3.651649
+reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 37.12363
 
 
 ```
@@ -539,17 +532,17 @@ As mentioned in the Methods section, I kept both risk factors and spatial proces
 ```{r fig8/small mult map errors}
 reg.summary <- rbind(
   mutate(reg.spatialCV,
-         Error = Prediction - countVand,
+         Error = Prediction - count_permits,
          Regression = "Random k-fold CV"),
   mutate(reg.logo.spatialCV, 
-         Error = Prediction - countVand,
+         Error = Prediction - count_permits,
          Regression = "Spatial LOGO-CV")) %>%
     st_sf() 
 
 error_by_reg_and_fold <- 
   reg.summary %>%
     group_by(Regression, cvID) %>% 
-    summarize(Mean_Error = mean(Prediction - countVand, na.rm = T),
+    summarize(Mean_Error = mean(Prediction - count_permits, na.rm = T),
               MAE        = mean(abs(Mean_Error), na.rm = T),
               SD_MAE     = mean(abs(Mean_Error), na.rm = T)) %>%
   ungroup()
@@ -561,7 +554,7 @@ error_by_reg_and_fold %>%
     facet_wrap(~Regression) +
     scale_fill_viridis() +
     labs(title = "Errors by Cross Validation method",
-       caption = "Figure 8.") +
+       caption = "Figure x.") +
     mapTheme(title_size = 14) + theme(legend.position="bottom")
 
 ```
@@ -572,10 +565,10 @@ error_by_reg_and_fold %>%
   ggplot(aes(MAE)) + 
     geom_histogram(bins = 30, colour="black", fill = "#FDE725FF") +
     facet_wrap(~Regression) +  
-    geom_vline(xintercept = 0) + scale_x_continuous(breaks = seq(0, 30, by = 2)) + 
+    geom_vline(xintercept = 0) + scale_x_continuous(breaks = seq(0, 450, by = 50)) + 
     labs(title="Distribution of MAE", subtitle = "k-fold cross validation vs. LOGO-CV",
          x="Mean Absolute Error",     y="Count",
-         caption = "Figure 9.") +
+         caption = "Figure x.") +
     plotTheme(title_size = 14) + theme(legend.position="bottom")
 
 ```
@@ -602,11 +595,35 @@ In order to assess if the model generalizes to different neighborhood contexts, 
 
 #### Table 2. Racial Context
 ```{r table2/raw errors race}
-RaceContext <- tract21 %>% dplyr::select(GEOID,TotalPop,RaceContext,geometry) %>% .[nhoods,]
+RaceContext <- tracts21 %>% 
+  dplyr::select(GEOID,total_pop,RaceContext,geometry) %>% 
+  .[nhoods,]
 
 reg.summary %>% 
   st_centroid() %>%
-  st_join(tract21 %>% dplyr::select(RaceContext, geometry)) %>%
+  st_join(tracts21 %>% dplyr::select(RaceContext, geometry)) %>%
+  na.omit() %>%
+  st_drop_geometry() %>%
+  group_by(Regression, RaceContext) %>%
+  summarize(mean.Error = mean(Error, na.rm = T)) %>%
+  spread(RaceContext, mean.Error) %>%
+  kable(caption = "Table 2. Mean Error by Neighborhood Racial Context") %>%
+  kable_styling("striped", full_width = F) %>% 
+  kable_classic(html_font = "Cambria")
+
+```
+
+#### Table 2. Income Context
+
+# need to work on this.
+```{r table2/raw errors race}
+RaceContext <- tracts21 %>% 
+  dplyr::select(GEOID,total_pop,RaceContext,geometry) %>% 
+  .[nhoods,]
+
+reg.summary %>% 
+  st_centroid() %>%
+  st_join(tracts21 %>% dplyr::select(RaceContext, geometry)) %>%
   na.omit() %>%
   st_drop_geometry() %>%
   group_by(Regression, RaceContext) %>%
