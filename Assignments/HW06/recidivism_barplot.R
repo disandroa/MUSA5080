@@ -13,6 +13,8 @@
   library(gridExtra)
   library(QuantPsyc)
   
+  set.seed(712)
+  
   root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
   source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
   
@@ -131,29 +133,49 @@
 {
   testProbs.thresholds <- 
     iterateThresholds(data=testProbs, observedClass = class, 
-                      predictedProbs = probs, group = Race)
+                      predictedProbs = probs, group = Race) %>% 
+    rename(`LR, Rec.` = Rate_FN,
+           `HR, did not Rec.` = Rate_FP,
+           `LR, did not Rec.` = Rate_TN,
+           `HR, Rec.` = Rate_TP)
   
   thresh5 <- 
     filter(testProbs.thresholds, Threshold == .5)  %>%
-    dplyr::select(Accuracy, Race, starts_with("Rate")) %>%
+    dplyr::select(matches("Accuracy|Race|Rec.")) %>%
     gather(Variable, Value, -Race) %>%
+    mutate(Variable = factor(Variable, levels = c("Accuracy","LR, Rec.","LR, did not Rec.","HR, Rec.","HR, did not Rec."))) %>% 
     ggplot(aes(Variable, Value, fill = Race)) +
     geom_bar(aes(fill = Race), position = "dodge", stat = "identity") +
     scale_fill_manual(values = palette_3_colors) +
-    labs(title="Confusion matrix rates by race",
-         subtitle = "50% threshold", x = "Outcome",y = "Rate") +
+    labs(title="Figure 1. Revidivation Rate by Race",
+         subtitle = "50% Likelihood as Cutoff for High Risk", 
+         x = "Outcome",y = "Rate",
+         caption = "LR = Low Risk; HR = High Risk; Rec. = Recidivate(d)") +
     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  
+  # print 50% threshold plot
+  # pdf("~/Documents/MUSA5080/Assignments/HW06/recidivism_50pct_threshold_barplot.pdf",height=9,width=12)
+  # thresh5
+  # dev.off()
   
   thresh_opt <- 
     filter(testProbs.thresholds, Threshold == .45)  %>%
-    dplyr::select(Accuracy, Race, starts_with("Rate")) %>%
+    dplyr::select(matches("Accuracy|Race|Rec.")) %>%
     gather(Variable, Value, -Race) %>%
+    mutate(Variable = factor(Variable, levels = c("Accuracy","LR, Rec.","LR, did not Rec.","HR, Rec.","HR, did not Rec."))) %>% 
     ggplot(aes(Variable, Value, fill = Race)) +
     geom_bar(aes(fill = Race), position = "dodge", stat = "identity") +
     scale_fill_manual(values = palette_3_colors) +
-    labs(title="Confusion matrix rates by race",
-         subtitle = "50% threshold", x = "Outcome",y = "Rate") +
+    labs(title="Figure 2. Revidivation Rate by Race",
+         subtitle = "45% Likelihood as Cutoff for High Risk", 
+         x = "Outcome",y = "Rate",
+         caption = "LR = Low Risk; HR = High Risk; Rec. = Recidivate(d)") +
     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  
+  # print optimum threshold plot
+  # pdf("~/Documents/MUSA5080/Assignments/HW06/recidivism_optimumpct_threshold_barplot.pdf",height=9,width=12)
+  # thresh_opt
+  # dev.off()
 }
 
 

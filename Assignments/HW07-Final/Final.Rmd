@@ -45,6 +45,9 @@ newcon_permits <- dat_permit %>%
   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
   st_transform(crs = 2272)
 
+# TODO:
+# need to further limit this to permits between 2011-2021, to then predict 2022 data
+
 # write out smaller geojson file
 # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
 
