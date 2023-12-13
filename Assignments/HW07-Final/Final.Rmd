@@ -616,19 +616,19 @@ reg.summary %>%
 
 # need to work on this.
 ```{r table2/raw errors race}
-RaceContext <- tracts21 %>% 
-  dplyr::select(GEOID,total_pop,RaceContext,geometry) %>% 
+IncomeContext <- tracts22 %>% 
+  dplyr::select(GEOID,total_pop,IncomeContext,geometry) %>% 
   .[nhoods,]
 
 reg.summary %>% 
   st_centroid() %>%
-  st_join(tracts21 %>% dplyr::select(RaceContext, geometry)) %>%
+  st_join(tracts22 %>% dplyr::select(IncomeContext, geometry)) %>%
   na.omit() %>%
   st_drop_geometry() %>%
-  group_by(Regression, RaceContext) %>%
+  group_by(Regression, IncomeContext) %>%
   summarize(mean.Error = mean(Error, na.rm = T)) %>%
-  spread(RaceContext, mean.Error) %>%
-  kable(caption = "Table 2. Mean Error by Neighborhood Racial Context") %>%
+  spread(IncomeContext, mean.Error) %>%
+  kable(caption = "Table 2. Mean Error by Neighborhood Income Context") %>%
   kable_styling("striped", full_width = F) %>% 
   kable_classic(html_font = "Cambria")
 
