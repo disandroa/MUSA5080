@@ -189,32 +189,32 @@ historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+histor
 
 ```{r fig2/fishnet outcome}
 # our CRS is in feet, but want to make fishnet a 500m x 500m
-  cell_size <- 500 * 3.28084
-  
-  fishnet <- 
-    st_make_grid(philly,
-                 cellsize = cell_size,  
-                 square = TRUE,
-                 crs = 2272) %>% 
-    .[philly] %>%
-    st_sf() %>%              
-    mutate(uniqueID = 1:n()) 
-  
-  permit_net <- 
-    dplyr::select(newcon_permits) %>% 
-    mutate(count_permits = 1) %>% 
-    aggregate(., fishnet, sum) %>%
-    mutate(count_permits = replace_na(count_permits, 0),
-           uniqueID = as.numeric(rownames(.)),
-           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
-  #this accomplishes the cross fold validation, we need to 
-  
-  ggplot() +
-    geom_sf(data = permit_net, aes(fill = count_permits)) +
-    scale_fill_viridis() +
-    labs(title = "Count of New Construction Permits for the fishnet",
-         caption = "Figure x.") +
-    mapTheme()
+cell_size <- 500 * 3.28084
+
+fishnet <- 
+  st_make_grid(philly,
+               cellsize = cell_size,  
+               square = TRUE,
+               crs = 2272) %>% 
+  .[philly] %>%
+  st_sf() %>%              
+  mutate(uniqueID = 1:n()) 
+
+permit_net <- 
+  dplyr::select(newcon_permits) %>% 
+  mutate(count_permits = 1) %>% 
+  aggregate(., fishnet, sum) %>%
+  mutate(count_permits = replace_na(count_permits, 0),
+         uniqueID = as.numeric(rownames(.)),
+         cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
+#this accomplishes the cross fold validation, we need to 
+
+ggplot() +
+  geom_sf(data = permit_net, aes(fill = count_permits)) +
+  scale_fill_viridis() +
+  labs(title = "Count of New Construction Permits for the fishnet",
+       caption = "Figure x.") +
+  mapTheme()
 ```
 
 ```{r create vars_net}
@@ -383,7 +383,6 @@ do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on 
 final_net.nb <- poly2nb(as_Spatial(subset_net), queen=TRUE)
 final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE) # turn neighborhood weights into list of weights
 
-
 local_morans <- localmoran(subset_net$count_permits, final_net.weights, zero.policy=TRUE) %>%
   as.data.frame() # Ii moran's I at ith cell, Ei expected/mean from neighbors
 
@@ -429,8 +428,6 @@ final_net <-
 
 #### Figure 6. Scatterplots of Risk Factors
 ```{r fig6/small mult scatter, fig.height=16}
-# from book
-
 correlation.long <-
   st_drop_geometry(final_net) %>%
     dplyr::select(-uniqueID, -cvID, -mapname) %>%
@@ -519,7 +516,6 @@ reg.logo.spatialCV <- crossValidate(
 
 # MAE
 reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 37.12363
-
 
 ```
 
