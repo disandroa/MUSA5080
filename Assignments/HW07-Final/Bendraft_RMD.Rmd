@@ -30,7 +30,7 @@ library(rphl)
 
 set.seed(172)
 
-setwd("~/Documents/MUSA5080")
+#setwd("~/Documents/MUSA5080")
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
@@ -44,6 +44,9 @@ dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&
 newcon_permits <- dat_permit %>%
   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
   st_transform(crs = 2272)
+
+# TODO:
+# need to further limit this to permits between 2011-2021, to then predict 2022 data
 
 # write out smaller geojson file
 # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
@@ -165,6 +168,49 @@ bikes <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d
 historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
   st_transform(crs = 2272) %>%
   dplyr::select(name)
+
+cityLandmarks <- st_read("http://data-phl.opendata.arcgis.com/datasets/5146960d4d014f2396cb82f31cd82dfe_0.geojson")%>%
+  st_transform(crs = 2272) %>%
+    mutate(Legend = "Landmarks") %>% 
+  dplyr::select(Legend)
+
+farmerMarket <- st_read("https://opendata.arcgis.com/datasets/0707c1f31e2446e881d680b0a5ee54bc_0.geojson")%>%
+  st_transform(crs = 2272) %>%
+  st_centroid(farmerMarket)%>%
+    mutate(Legend = "FarmerMarket") %>% 
+  dplyr::select(Legend)
+
+indegoStation <- st_read("http://www.rideindego.com/stations/json/")%>%
+  st_transform(crs = 2272)%>%
+    mutate(Legend = "IndeGO") %>% 
+  dplyr::select(Legend)
+
+```
+
+```{r}
+carto_url = "https://phl.carto.com/api/v2/sql"
+
+# Crime incidents
+table_name_311 = "public_cases_fc"
+
+# query
+where_311 = "closed_datetime >= '2010-01-01' AND closed_datetime < '2020-01-01' AND service_name = 'Rubbish/Recyclable Material Collection'"
+
+query311 = paste("SELECT *",
+              "FROM", table_name_311,
+              "WHERE", where_311)
+
+reports311 = rphl::get_carto(query311, format = "csv", base_url = carto_url, stringsAsFactors = F)#%>%
+   #rename(Legend = service_name)
+reports311 <- reports311 %>%
+   filter(!is.na(lat) & !is.na(lon)) %>%
+   st_as_sf(coords = c("lat","lon"), crs = 'EPSG:3857') %>%
+  #st_transform('ESRI:102728') %>%
+  st_transform(crs = 2272) %>% 
+  mutate(Legend = "311") %>% 
+   dplyr::select(Legend, geometry)
+
+
 ```
 
 ## Introduction
@@ -212,12 +258,19 @@ historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+histor
     labs(title = "Count of New Construction Permits for the fishnet",
          caption = "Figure x.") +
     mapTheme()
+  
+      ggplot() +
+      geom_sf(data = reports311, aes()) +
+      scale_fill_viridis() +
+      labs(title = "Count of New Construction Permits for the fishnet",
+           caption = "Figure x.") +
+      mapTheme()
 ```
 
 ```{r create vars_net}
 # most vars can be added easily
 # special cases: groshies,bikes,historicDist
-vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees) %>%
+vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees, farmerMarket, indegoStation, cityLandmarks) %>%
   st_join(fishnet, join=st_within) %>%
   st_drop_geometry() %>%
   group_by(uniqueID, Legend) %>%
@@ -241,7 +294,11 @@ vars_net <- vars_net %>%
          septa_stops.nn = nn_function(vars_net_ccoid, st_c(septaStops), 2),
          city_hall.nn = nn_function(vars_net_ccoid, st_c(city_hall), 1),
          schools.nn = nn_function(vars_net_ccoid, st_c(schools), 8),
-         trees.nn = nn_function(vars_net_ccoid, st_c(trees), 8)) 
+         trees.nn = nn_function(vars_net_ccoid, st_c(trees), 8),
+         farmers.nn = nn_function(vars_net_ccoid, st_c(farmerMarket), 3),
+         indego.nn = nn_function(vars_net_ccoid,st_c(indegoStation), 3)
+  )
+
 
 # think about how to add binary variables 
 # groceries, get centroids of block groups and map that on to the fishnet
@@ -370,7 +427,7 @@ for (i in vars) {
       mapTheme(title_size = 14) + theme(legend.position="bottom")
   }
 
-do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
+do.call(grid.arrange,c(varList, ncol = 4, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
 ```
 
 [description of figure 5]
@@ -463,7 +520,7 @@ final_net %>% ggplot(aes(x = count_permits)) +
 
 ```{r models, results='hide'}
 # just risk factors
-reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants")
+reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants","indego.nn","farmers.nn","Landmarks")
 
 ## RUN REGRESSIONS
 reg.CV <- crossValidate(
