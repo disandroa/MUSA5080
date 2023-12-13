@@ -203,8 +203,8 @@ query311 = paste("SELECT *",
 reports311 = rphl::get_carto(query311, format = "csv", base_url = carto_url, stringsAsFactors = F)#%>%
    #rename(Legend = service_name)
 reports311 <- reports311 %>%
-   filter(!is.na(lat) & !is.na(lon)) %>%
-   st_as_sf(coords = c("lat","lon"), crs = 'EPSG:3857') %>%
+   filter(!is.na(lon) & !is.na(lat)) %>%
+   st_as_sf(coords = c("lon","lat"), crs = 4326) %>%
   #st_transform('ESRI:102728') %>%
   st_transform(crs = 2272) %>% 
   mutate(Legend = "311") %>% 
