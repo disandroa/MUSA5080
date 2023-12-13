@@ -21,6 +21,8 @@
   library(classInt)
   #devtools::install_github("CityOfPhiladelphia/rphl")
   library(rphl)
+  library(stringr)
+  library(lubridate)
   
   set.seed(172)
   
@@ -37,20 +39,19 @@
   # # only keep new construction permits
   # newcon_permits <- dat_permit %>%
   #   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
+  #   mutate(year = substr(permitissuedate, 1,4)) %>% 
+  #   filter(year %in% c(2010:2019,2022)) %>% 
   #   st_transform(crs = 2272)
   
   # TODO:
-  # need to further limit this to permits between 2011-2021, to then predict 2022 data
+  # need to further limit this to permits between 2010-2019, to then predict 2022 data
   
   # write out smaller geojson file
   # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
   
   # rm(dat_permit)
   
-  newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") #%>%
-  #   st_transform(crs = 2272)
-  # for some reason, points are coming out as empty from this geojson
-  # this timee it worked?? idk what's going on
+  newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson")
   
   # census data
   # variables of interest:
@@ -60,11 +61,28 @@
   # med home value (if possible)
   # B25058_001 - median rent
   # B15003_022 - attainment of bachelor's of population 25+
+  acs_variable_list.2013 <- load_variables(2013, #year
+                                           "acs5", #five year ACS estimates
+                                           cache = TRUE)
+  
+  acs_variable_list.2018 <- load_variables(2018, #year
+                                           "acs5", #five year ACS estimates
+                                           cache = TRUE)
+  
   acs_variable_list.2022 <- load_variables(2022, #year
                                            "acs5", #five year ACS estimates
                                            cache = TRUE)
   
   # other variables of interest
+  # B25071_001: Median gross rent as a percentage of household income (past year)
+  # B07010_001: Geographical Mobility in the Past Year by Individual Income in the Past 12 Months (in 2022 Inflation-Adjusted Dollars) for Current Residence in the United States
+  # B07201_001: Geographical Mobility in the Past Year for Current Residence--Metropolitan Statistical Area Level in the United States, estimated total
+  # B07201_002: Geographical Mobility in the Past Year for Current Residence--Metropolitan Statistical Area Level in the United States, same house 1 year ago 
+  # B07202_001: Geographical Mobility in the Past Year for Current Residence--Micropolitan Statistical Area Level in the United States, estimatedd total
+  # B07202_002: Geographical Mobility in the Past Year for Current Residence--Micropolitan Statistical Area Level in the United States, same house 1 year ago
+  # B07204_006: Geographical Mobility in the Past Year for Current Residence--State, County and Place Level in the United States, same city, different county as 1 year ago
+  # B07401_049: living in area 1 year ago, moved to dif county within same state
+  # B07401_050: living in area 1 year ago, moved to dif county within same state 1-4 years
   # Geographical Mobility in the Past Year by Tenure for Current Residence in the United States
   # B07013_003: Householder lived in renter-occupied housing units
   # B07013_006: Same house 1 year ago:!!Householder lived in renter-occupied housing units
@@ -75,7 +93,62 @@
   # same, but 1 year ago
   # B07413_003,B07413_006,B07413_009,B07413_012,B07413_015
   
-  census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E") # census variables of interest 
+  # census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E","B25071_001E","B07010_001E",
+  # "B07201_001E","B07201_002E","B07202_001E","B07202_002E","B07204_006E","B07401_049E","B07401_050E","B07013_003E",
+  # "B07013_006E","B07013_009E","B07013_012E","B07013_015E","B07013_018E") # census variables of interest 
+  
+  census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E",
+                   "B25071_001E","B07201_001E","B07201_002E","B07202_001E","B07202_002E") # census variables of interest that are available
+  
+  med_inc2012 <- some_num
+  med_inc2017 <- some_num
+  med_inc2022 <- some_num
+    
+  tracts13 <- 
+    get_acs(geography = "block group", 
+            variables = census_vars, 
+            year = 2013, state = 42,
+            geometry = T, output = "wide") %>%
+    st_transform(crs = 2272) %>%
+    dplyr::select(!matches("M$")) %>% 
+    rename(total_pop = B01001_001E,
+           bachelors25 = B15003_022E,
+           med_hh_inc = B19013_001E,
+           white_pop = B02001_002E,
+           med_rent = B25058_001E,
+           pct_rent_hhinc = B25071_001E,
+           mobility_tot_metro = B07201_001E,
+           samehouse1yr_metro = B07201_002E,
+           mobility_tot_micro = B07202_001E,
+           samehouse1yr_micro = B07202_002E,
+           ) %>%
+    mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+           RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                ifelse(total_pop != 0 , "Majority non-White", NA)),
+           year = "2013")
+  
+  tracts18 <- 
+    get_acs(geography = "block group", 
+            variables = census_vars, 
+            year = 2018, state = 42,
+            geometry = T, output = "wide") %>%
+    st_transform(crs = 2272) %>%
+    dplyr::select(!matches("M$")) %>% 
+    rename(total_pop = B01001_001E,
+           bachelors25 = B15003_022E,
+           med_hh_inc = B19013_001E,
+           white_pop = B02001_002E,
+           med_rent = B25058_001E,
+           pct_rent_hhinc = B25071_001E,
+           mobility_tot_metro = B07201_001E,
+           samehouse1yr_metro = B07201_002E,
+           mobility_tot_micro = B07202_001E,
+           samehouse1yr_micro = B07202_002E
+           ) %>%
+    mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+           RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                ifelse(total_pop != 0 , "Majority non-White", NA)),
+           year = "2018")
   
   tracts22 <- 
     get_acs(geography = "block group", 
@@ -85,10 +158,26 @@
     st_transform(crs = 2272) %>%
     dplyr::select(!matches("M$")) %>% 
     rename(total_pop = B01001_001E,
-           white_pop = B02001_002E,
            bachelors25 = B15003_022E,
            med_hh_inc = B19013_001E,
-           med_rent = B25058_001E) %>%
+           white_pop = B02001_002E,
+           med_rent = B25058_001E,
+           pct_rent_hhinc = B25071_001E,
+           # inc_mobility1yr = B07010_001E,
+           mobility_tot_metro = B07201_001E,
+           samehouse1yr_metro = B07201_002E,
+           mobility_tot_micro = B07202_001E,
+           samehouse1yr_micro = B07202_002E #,
+           # samecity_difcounty1yr = B07204_006E,           # all commented out columns consiste of missing values
+           # samestate_difcounty1yr = B07401_049E,
+           # samestate_difcounty1to4yr = B07401_050E,
+           # rent_housing = B07013_003E,
+           # same_rent_housing1yr = B07013_006E,
+           # samecounty_rent_housing1yr = B07013_009E,
+           # difcounty_rent_housing1yr = B07013_012E, # same state
+           # difstate_rent_housing1yr = B07013_015E,
+           # difcountry_rent_housing1yr = B07013_018E
+           ) %>%
     mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
            RaceContext = ifelse(pct_white > 0.5, "Majority White", 
                                 ifelse(total_pop != 0 , "Majority non-White", NA)),
@@ -174,6 +263,49 @@
   historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
     st_transform(crs = 2272) %>%
     dplyr::select(name)
+  
+  # 311 incident data
+  # still need to figure out how to work through this
+  {
+    incidents <- st_read("https://phl.carto.com/api/v2/sql?filename=incidents_part1_part2&format=shp&skipfields=cartodb_id&q=SELECT%20*%20FROM%20incidents_part1_part2%20WHERE%20dispatch_date_time%20%3E=%20%272022-01-01%27%20AND%20dispatch_date_time%20%3C%20%272023-01-01%27") %>% 
+      st_transform(crs = 2272)
+    
+    incidents21 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_21/incidents_part1_part2.shp") %>% 
+      st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+    
+    # filter to only keep vandalism incidents
+    vandalism <- incidents21 %>% filter(Legend == "Vandalism/Criminal Mischief") # 13670 rows
+    
+    # only keep what's inside the philly boundary
+    vandalism <- vandalism[philly,] # 13578 rows
+    
+    # same for other risk factors: public drunkenness, arson, disorderly conduct, thefts, theft from vehicle, dui
+    # also make feature for nearest neighbor count of these incidents
+    public_drunk <- incidents21 %>% filter(Legend == "Public Drunkenness") %>% 
+      dplyr::select(Legend,geometry)
+    public_drunk <- public_drunk[philly,]
+    
+    arson <- incidents21 %>% filter(Legend == "Arson") %>% 
+      dplyr::select(Legend,geometry)
+    arson <- arson[philly,]
+    
+    disorderly <- incidents21 %>% filter(Legend == "Disorderly Conduct") %>% 
+      dplyr::select(Legend,geometry)
+    disorderly <- disorderly[philly,]
+    
+    thefts <- incidents21 %>% filter(Legend == "Thefts") %>% 
+      dplyr::select(Legend,geometry)
+    thefts <- thefts[philly,]
+    
+    theft_from_veh <- incidents21 %>% filter(Legend == "Theft from Vehicle") %>% 
+      dplyr::select(Legend,geometry)
+    theft_from_veh <- theft_from_veh[philly,]
+    
+    dui <- incidents21 %>% filter(Legend == "DRIVING UNDER THE INFLUENCE") %>% 
+      dplyr::select(Legend,geometry)
+    dui <- dui[philly,]
+  }
+  
 }
 
 # Create Fishnet
@@ -199,12 +331,14 @@
            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
   #this accomplishes the cross fold validation, we need to 
   
-  ggplot() +
+  permit_count_map <- ggplot() +
     geom_sf(data = permit_net, aes(fill = count_permits)) +
     scale_fill_viridis() +
     labs(title = "Count of New Construction Permits for the fishnet",
          caption = "Figure x.") +
     mapTheme()
+  
+  permit_count_map
 }
 
 # Add other predictors to Fishnet
@@ -313,8 +447,6 @@
     labs(title = "Correlation",
          caption = "Figure x.") 
   
-  # strongest pred to keep: 
-  # 
 }
 
 # Data Exploration ----
@@ -376,7 +508,7 @@
       subset_net %>% 
       mutate(permitct.isSig = 
                ifelse(localmoran(subset_net$count_permits, 
-                                 final_net.weights)[,5] <= 0.0000001, 1, 0)) %>%
+                                 final_net.weights)[,5] <= 0.001, 1, 0)) %>%
       mutate(permitct.isSig.dist = 
                nn_function(st_coordinates(st_centroid(subset_net)),
                            st_coordinates(st_centroid(
@@ -416,7 +548,6 @@
            x = "Count of New Construction Permits", y = "Count",
            caption = "Figure x.")
   }
-  
 }
 
 # Model ----
@@ -424,7 +555,8 @@
   # building model
   {
     # just risk factors
-    reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants")
+    reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", 
+                  "total_hpss", "total_restaurants", "Trees", "Vacants")
     
     ## RUN REGRESSIONS
     reg.CV <- crossValidate(
@@ -439,7 +571,8 @@
     
     
     # with local Moran's I spatial process features
-    reg.sp.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants","permitct.isSig", "permitct.isSig.dist")
+    reg.sp.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", 
+                     "total_hpss", "total_restaurants", "Trees", "Vacants","permitct.isSig", "permitct.isSig.dist")
     
     ## RUN REGRESSIONS
     reg.spatialCV <- crossValidate(
