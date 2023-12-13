@@ -30,7 +30,7 @@ library(rphl)
 
 set.seed(172)
 
-setwd("~/Documents/MUSA5080")
+#setwd("~/Documents/MUSA5080")
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
@@ -44,6 +44,9 @@ dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&
 newcon_permits <- dat_permit %>%
   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
   st_transform(crs = 2272)
+
+# TODO:
+# need to further limit this to permits between 2011-2021, to then predict 2022 data
 
 # write out smaller geojson file
 # st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
@@ -167,6 +170,32 @@ historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+histor
   dplyr::select(name)
 ```
 
+```{r}
+carto_url = "https://phl.carto.com/api/v2/sql"
+
+# Crime incidents
+table_name_311 = "public_cases_fc"
+
+# query
+where_311 = "closed_datetime >= '2010-01-01' AND closed_datetime < '2020-01-01' AND service_name = 'Rubbish/Recyclable Material Collection'"
+
+query311 = paste("SELECT *",
+              "FROM", table_name_311,
+              "WHERE", where_311)
+
+reports311 = rphl::get_carto(query311, format = "csv", base_url = carto_url, stringsAsFactors = F)#%>%
+   #rename(Legend = service_name)
+reports311 <- reports311 %>%
+   filter(!is.na(lat) & !is.na(lon)) %>%
+   st_as_sf(coords = c("lat","lon"), crs = 'EPSG:3857') %>%
+  #st_transform('ESRI:102728') %>%
+  st_transform(crs = 2272) %>% 
+  mutate(Legend = "311") %>% 
+   dplyr::select(Legend, geometry)
+
+
+```
+
 ## Introduction
 
 ### Background
@@ -212,12 +241,19 @@ historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+histor
     labs(title = "Count of New Construction Permits for the fishnet",
          caption = "Figure x.") +
     mapTheme()
+  
+      ggplot() +
+      geom_sf(data = reports311, aes()) +
+      scale_fill_viridis() +
+      labs(title = "Count of New Construction Permits for the fishnet",
+           caption = "Figure x.") +
+      mapTheme()
 ```
 
 ```{r create vars_net}
 # most vars can be added easily
 # special cases: groshies,bikes,historicDist
-vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees) %>%
+vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees, reports311) %>%
   st_join(fishnet, join=st_within) %>%
   st_drop_geometry() %>%
   group_by(uniqueID, Legend) %>%
