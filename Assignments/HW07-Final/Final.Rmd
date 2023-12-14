@@ -200,10 +200,6 @@ historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+histor
 ### Background
 
 
-
-# IDEA! it would be nice if we could have an animated plot demonstrating how permit count changed every year + another one of how neighborhood haverages of medHHincome chnaged over those same years. maybe even put on the same map if possible?
-
-
 ## Methods
 
 ### The Fishnet
@@ -377,11 +373,14 @@ The most important validity measure of a geospatial risk prediction model is the
 
 ## Results
 
-### Visualizing Risk factors and Local Moran's *I*
+### Visualizing Predictors and Local Moran's *I*
+
+Sources of data:
+median HH income for each year: https://www.deptofnumbers.com/income/pennsylvania/philadelphia/ 
 
 [description of figure 4]
 
-#### Figure 4. Risk Factors in final model
+#### Figure 4. Predictors in final model
 
 ```{r fig4/small mult map, fig.height=15}
 vars_net.long <- gather(subset_net %>% dplyr::select(-count_permits),
@@ -451,7 +450,7 @@ final_net <-
 
 [description of figure 6] 
 
-#### Figure 6. Scatterplots of Risk Factors
+#### Figure 6. Scatterplots of Predictors
 ```{r fig6/small mult scatter, fig.height=16}
 correlation.long <-
   st_drop_geometry(final_net) %>%

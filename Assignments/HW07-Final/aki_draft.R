@@ -65,9 +65,30 @@
                                            "acs5", #five year ACS estimates
                                            cache = TRUE)
   
+  acs_variable_list.2014 <- load_variables(2014, #year
+                                           "acs5", #five year ACS estimates
+                                           cache = TRUE)
+  
+  acs_variable_list.2015 <- load_variables(2015, #year
+                                           "acs5", #five year ACS estimates
+                                           cache = TRUE)
+  
+  acs_variable_list.2016 <- load_variables(2016, #year
+                                           "acs5", #five year ACS estimates
+                                           cache = TRUE)
+  
+  acs_variable_list.2017 <- load_variables(2017, #year
+                                           "acs5", #five year ACS estimates
+                                           cache = TRUE)
+  
   acs_variable_list.2018 <- load_variables(2018, #year
                                            "acs5", #five year ACS estimates
                                            cache = TRUE)
+  
+  acs_variable_list.2019 <- load_variables(2019, #year
+                                           "acs5", #five year ACS estimates
+                                           cache = TRUE) %>% 
+    filter(geography == "block group")
   
   acs_variable_list.2022 <- load_variables(2022, #year
                                            "acs5", #five year ACS estimates
@@ -92,6 +113,19 @@
   # B07013_018: Moved from abroad:!!Householder lived in renter-occupied housing units
   # same, but 1 year ago
   # B07413_003,B07413_006,B07413_009,B07413_012,B07413_015
+  
+  # more vars
+  # B25003_002: tenure, owner occupied
+  # B25003_003: tenure, renter occupied
+  # B25008_002: total population in occupied housing by tenure, owner occupied
+  # B25008_003: total population in occupied housing by tenure, renter occupied
+  # B99082_001: allocation of private vehicle occupance
+  # B992512_001: allocation of vehicles available
+  # B25044_001: tenure by vehicles available
+  # B25046_001: aggregate number of vehicles available
+  # B09002_001: own children under 18
+  # B11004_001: related children under 18
+  
   
   # census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E","B25071_001E","B07010_001E",
   # "B07201_001E","B07201_002E","B07202_001E","B07202_002E","B07204_006E","B07401_049E","B07401_050E","B07013_003E",
