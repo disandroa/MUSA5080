@@ -523,6 +523,8 @@ reports311 <- reports311 %>%
     Legend = "311") %>% 
    dplyr::select(Legend, type, geometry, Year)
 
+
+
 reports311_2013 <- reports311 %>%
   filter(Year == "2013")%>%
   dplyr::select(type, geometry,Legend)
@@ -546,178 +548,505 @@ reports311_2019 <- reports311 %>%
   dplyr::select(type, geometry,Legend)
 
 
-dumping2014 <- reports311_2014 %>%
-  filter(grepl("Illegal Dumping",type))%>%
-  dplyr::select(geometry,Legend)
-dumping2015 <- reports311_2015 %>%
-  filter(grepl("Illegal Dumping",type))%>%
-  dplyr::select(geometry,Legend)
-dumping2016 <- reports311_2016 %>%
-  filter(grepl("Illegal Dumping",type))%>%
-  dplyr::select(geometry,Legend)
-dumpng2017 <- reports311_2017 %>%
-  filter(grepl("Illegal Dumping",type))%>%
-  dplyr::select(geometry,Legend)
-dumping2018 <- reports311_2018 %>%
-  filter(grepl("Illegal Dumping",type))%>%
-  dplyr::select(geometry,Legend)
-dumping2019 <- reports311_2019 %>%
-  filter(grepl("Illegal Dumping",type))%>%
-  dplyr::select(geometry,Legend)
+# This is the old way that I was approaching it, creating separate feature classes for each variable for each year. To make it a bit faster Akira I was going to use the methodology that you had!
 
-constructionComplain2014 <- reports311_2014 %>%
-  filter(grepl("Construction Complaints",type))%>%
-  dplyr::select(geometry,Legend)
-constructionComplain2015 <- reports311_2015 %>%
-  filter(grepl("Construction Complaints",type))%>%
-  dplyr::select(geometry,Legend)
-constructionComplain2016 <- reports311_2016 %>%
-  filter(grepl("Construction Complaints",type))%>%
-  dplyr::select(geometry,Legend)
-constructionComplain2017 <- reports311_2017 %>%
-  filter(grepl("Construction Complaints",type))%>%
-  dplyr::select(geometry,Legend)
-constructionComplain2018 <- reports311_2018 %>%
-  filter(grepl("Construction Complaints",type))%>%
-  dplyr::select(geometry,Legend)
-constructionComplain2019 <- reports311_2019 %>%
-  filter(grepl("Construction Complaints",type))%>%
-  dplyr::select(geometry,Legend)
+# dumping2014 <- reports311_2014 %>%
+#   filter(grepl("Illegal Dumping",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumping2015 <- reports311_2015 %>%
+#   filter(grepl("Illegal Dumping",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumping2016 <- reports311_2016 %>%
+#   filter(grepl("Illegal Dumping",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumpng2017 <- reports311_2017 %>%
+#   filter(grepl("Illegal Dumping",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumping2018 <- reports311_2018 %>%
+#   filter(grepl("Illegal Dumping",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumping2019 <- reports311_2019 %>%
+#   filter(grepl("Illegal Dumping",type))%>%
+#   dplyr::select(geometry,Legend)
 
-construction2014 <- reports311_2014 %>%
-  filter(grepl("Building Construction",type))%>%
-  dplyr::select(geometry,Legend)
-construction2015 <- reports311_2015 %>%
-  filter(grepl("Building Construction",type))%>%
-  dplyr::select(geometry,Legend)
-construction2016 <- reports311_2016 %>%
-  filter(grepl("Building Construction",type))%>%
-  dplyr::select(geometry,Legend)
-construction2017 <- reports311_2017 %>%
-  filter(grepl("Building Construction",type))%>%
-  dplyr::select(geometry,Legend)
-construction2018 <- reports311_2018 %>%
-  filter(grepl("Building Construction",type))%>%
-  dplyr::select(geometry,Legend)
-construction2019 <- reports311_2019 %>%
-  filter(grepl("Building Construction",type))%>%
-  dplyr::select(geometry,Legend)
+dumping_net14 <- 
+    dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Illegal Dumping",type)))) %>% 
+    mutate(count_dump = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dump14 = replace_na(count_dump, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dump)
+  
+dumping_net15 <- 
+    dplyr::select(reports311 %>% filter((Year == "2015")&(grepl("Illegal Dumping",type)))) %>% 
+    mutate(count_dump = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dump15 = replace_na(count_dump, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dump)
+dumping_net16 <- 
+    dplyr::select(reports311 %>% filter((Year == "2016")&(grepl("Illegal Dumping",type)))) %>% 
+    mutate(count_dump = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dump16 = replace_na(count_dump, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dump)
+dumping_net17 <- 
+    dplyr::select(reports311 %>% filter((Year == "2017")&(grepl("Illegal Dumping",type)))) %>% 
+    mutate(count_dump = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dump17 = replace_na(count_dump, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dump)
+dumping_net18 <- 
+    dplyr::select(reports311 %>% filter((Year == "2018")&(grepl("Illegal Dumping",type)))) %>% 
+    mutate(count_dump = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dump18 = replace_na(count_dump, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dump)
+dumping_net19 <- 
+    dplyr::select(reports311 %>% filter((Year == "2019")&(grepl("Illegal Dumping",type)))) %>% 
+    mutate(count_dump = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dump19 = replace_na(count_dump, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dump)
+
+# No variables included
+# constructionComplain2014 <- reports311_2014 %>%
+#   filter(grepl("Construction Complaints",type))%>%
+#   dplyr::select(geometry,Legend)
+# constructionComplain2015 <- reports311_2015 %>%
+#   filter(grepl("Construction Complaints",type))%>%
+#   dplyr::select(geometry,Legend)
+# constructionComplain2016 <- reports311_2016 %>%
+#   filter(grepl("Construction Complaints",type))%>%
+#   dplyr::select(geometry,Legend)
+# constructionComplain2017 <- reports311_2017 %>%
+#   filter(grepl("Construction Complaints",type))%>%
+#   dplyr::select(geometry,Legend)
+# constructionComplain2018 <- reports311_2018 %>%
+#   filter(grepl("Construction Complaints",type))%>%
+#   dplyr::select(geometry,Legend)
+# constructionComplain2019 <- reports311_2019 %>%
+#   filter(grepl("Construction Complaints",type))%>%
+#   dplyr::select(geometry,Legend)
+# 
+# 
+# constructComplain_net14 <- 
+#     dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Construction Complaints",type)))) %>% 
+#     mutate(count_ConComplain = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(count_ConComplain14 = replace_na(count_ConComplain, 0),
+#            uniqueID = as.numeric(rownames(.)),
+#            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+#   dplyr::select(-count_ConComplain)
+# constructComplain_net15 <- 
+#     dplyr::select(reports311 %>% filter((Year == "2015")&(grepl("Construction Complaints",type)))) %>% 
+#     mutate(count_ConComplain = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(count_ConComplain15 = replace_na(count_ConComplain, 0),
+#            uniqueID = as.numeric(rownames(.)),
+#            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+#   dplyr::select(-count_ConComplain)
+# constructComplain_net16 <- 
+#     dplyr::select(reports311 %>% filter((Year == "2016")&(grepl("Construction Complaints",type)))) %>% 
+#     mutate(count_ConComplain = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(count_ConComplain16 = replace_na(count_ConComplain, 0),
+#            uniqueID = as.numeric(rownames(.)),
+#            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+#   dplyr::select(-count_ConComplain)
+# constructComplain_net17 <- 
+#     dplyr::select(reports311 %>% filter((Year == "2017")&(grepl("Construction Complaints",type)))) %>% 
+#     mutate(count_ConComplain = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(count_ConComplain17 = replace_na(count_ConComplain, 0),
+#            uniqueID = as.numeric(rownames(.)),
+#            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+#   dplyr::select(-count_ConComplain)
+# constructComplain_net18 <- 
+#     dplyr::select(reports311 %>% filter((Year == "2018")&(grepl("Construction Complaints",type)))) %>% 
+#     mutate(count_ConComplain = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(count_ConComplain18 = replace_na(count_ConComplain, 0),
+#            uniqueID = as.numeric(rownames(.)),
+#            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+#   dplyr::select(-count_ConComplain)
+# constructComplain_net19 <- 
+#     dplyr::select(reports311 %>% filter((Year == "2019")&(grepl("Construction Complaints",type)))) %>% 
+#     mutate(count_ConComplain = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(count_ConComplain19 = replace_na(count_ConComplain, 0),
+#            uniqueID = as.numeric(rownames(.)),
+#            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+#   dplyr::select(-count_ConComplain)
 
 
-sanitation2014 <- reports311_2014 %>%
-  filter(grepl("Sanitation Violation",type))%>%
-  dplyr::select(geometry,Legend)
-sanitation2015 <- reports311_2015 %>%
-  filter(grepl("Sanitation Violation",type))%>%
-  dplyr::select(geometry,Legend)
-sanitation2016 <- reports311_2016 %>%
-  filter(grepl("Sanitation Violation",type))%>%
-  dplyr::select(geometry,Legend)
-sanitation2017 <- reports311_2017 %>%
-  filter(grepl("Sanitation Violation",type))%>%
-  dplyr::select(geometry,Legend)
-sanitation2018 <- reports311_2018 %>%
-  filter(grepl("Sanitation Violation",type))%>%
-  dplyr::select(geometry,Legend)
-sanitation2019 <- reports311_2019 %>%
-  filter(grepl("Sanitation Violation",type))%>%
-  dplyr::select(geometry,Legend)
+# construction2014 <- reports311_2014 %>%
+#   filter(grepl("Building Construction",type))%>%
+#   dplyr::select(geometry,Legend)
+# construction2015 <- reports311_2015 %>%
+#   filter(grepl("Building Construction",type))%>%
+#   dplyr::select(geometry,Legend)
+# construction2016 <- reports311_2016 %>%
+#   filter(grepl("Building Construction",type))%>%
+#   dplyr::select(geometry,Legend)
+# construction2017 <- reports311_2017 %>%
+#   filter(grepl("Building Construction",type))%>%
+#   dplyr::select(geometry,Legend)
+# construction2018 <- reports311_2018 %>%
+#   filter(grepl("Building Construction",type))%>%
+#   dplyr::select(geometry,Legend)
+# construction2019 <- reports311_2019 %>%
+#   filter(grepl("Building Construction",type))%>%
+#   dplyr::select(geometry,Legend)
+
+buildComplain_net14 <- 
+    dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Building Construction",type)))) %>% 
+    mutate(count_BuildComplain = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_BuildComplain14 = replace_na(count_BuildComplain, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_BuildComplain)
+
+buildComplain_net15 <- 
+    dplyr::select(reports311 %>% filter((Year == "2015")&(grepl("Building Construction",type)))) %>% 
+    mutate(count_BuildComplain = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_BuildComplain15 = replace_na(count_BuildComplain, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_BuildComplain)
+
+buildComplain_net16 <- 
+    dplyr::select(reports311 %>% filter((Year == "2016")&(grepl("Building Construction",type)))) %>% 
+    mutate(count_BuildComplain = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_BuildComplain16 = replace_na(count_BuildComplain, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_BuildComplain)
+
+buildComplain_net17 <- 
+    dplyr::select(reports311 %>% filter((Year == "2017")&(grepl("Building Construction",type)))) %>% 
+    mutate(count_BuildComplain = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_BuildComplain17 = replace_na(count_BuildComplain, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_BuildComplain)
+buildComplain_net18 <- 
+    dplyr::select(reports311 %>% filter((Year == "2018")&(grepl("Building Construction",type)))) %>% 
+    mutate(count_BuildComplain = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_BuildComplain18 = replace_na(count_BuildComplain, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_BuildComplain)
+buildComplain_net19 <- 
+    dplyr::select(reports311 %>% filter((Year == "2019")&(grepl("Building Construction",type)))) %>% 
+    mutate(count_BuildComplain = 1) %>% 
+    aggregate(., fishnet, sum) %>%
+    mutate(count_BuildComplain19 = replace_na(count_BuildComplain, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_BuildComplain)
 
 
-dumpster2014 <- reports311_2014 %>%
-  filter(grepl("Dumpster Violation",type))%>%
-  dplyr::select(geometry,Legend)
-dumpster2015 <- reports311_2015 %>%
-  filter(grepl("Dumpster Violation",type))%>%
-  dplyr::select(geometry,Legend)
-dumpster2016 <- reports311_2016 %>%
-  filter(grepl("Dumpster Violation",type))%>%
-  dplyr::select(geometry,Legend)
-dumpster2017 <- reports311_2017 %>%
-  filter(grepl("Dumpster Violation",type))%>%
-  dplyr::select(geometry,Legend)
-dumpster2018 <- reports311_2018 %>%
-  filter(grepl("Dumpster Violation",type))%>%
-  dplyr::select(geometry,Legend)
-dumpster2019 <- reports311_2019 %>%
-  filter(grepl("Dumpster Violation",type))%>%
-  dplyr::select(geometry,Legend)
+# sanitation2014 <- reports311_2014 %>%
+#   filter(grepl("Sanitation Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# sanitation2015 <- reports311_2015 %>%
+#   filter(grepl("Sanitation Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# sanitation2016 <- reports311_2016 %>%
+#   filter(grepl("Sanitation Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# sanitation2017 <- reports311_2017 %>%
+#   filter(grepl("Sanitation Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# sanitation2018 <- reports311_2018 %>%
+#   filter(grepl("Sanitation Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# sanitation2019 <- reports311_2019 %>%
+#   filter(grepl("Sanitation Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# 
+# saniVio_net14 <- 
+#     dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Sanitation Violation",type)))) %>% 
+#     mutate(count_saniVio = 1) %>% 
+#     aggregate(., fishnet, sum) %>%
+#     mutate(ccount_saniVio14 = replace_na(count_saniVio, 0),
+#            uniqueID = as.numeric(rownames(.)),
+#            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+#   dplyr::select(-count_saniVio)
 
-streetTrees2014 <- reports311_2014 %>%
-  filter(grepl("Street Trees",type))%>%
-  dplyr::select(geometry,Legend)
-streetTrees2015 <- reports311_2015 %>%
-  filter(grepl("Street Trees",type))%>%
-  dplyr::select(geometry,Legend)
-streetTrees2016 <- reports311_2016 %>%
-  filter(grepl("Street Trees",type))%>%
-  dplyr::select(geometry,Legend)
-streetTrees2017 <- reports311_2017 %>%
-  filter(grepl("Street Trees",type))%>%
-  dplyr::select(geometry,Legend)
-streetTrees2018 <- reports311_2018 %>%
-  filter(grepl("Street Trees",type))%>%
-  dplyr::select(geometry,Legend)
-streetTrees2019 <- reports311_2019 %>%
-  filter(grepl("Street Trees",type))%>%
-  dplyr::select(geometry,Legend)
+# dumpster2014 <- reports311_2014 %>%
+#   filter(grepl("Dumpster Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumpster2015 <- reports311_2015 %>%
+#   filter(grepl("Dumpster Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumpster2016 <- reports311_2016 %>%
+#   filter(grepl("Dumpster Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumpster2017 <- reports311_2017 %>%
+#   filter(grepl("Dumpster Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumpster2018 <- reports311_2018 %>%
+#   filter(grepl("Dumpster Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# dumpster2019 <- reports311_2019 %>%
+#   filter(grepl("Dumpster Violation",type))%>%
+#   dplyr::select(geometry,Legend)
+# 
+# streetTrees2014 <- reports311_2014 %>%
+#   filter(grepl("Street Trees",type))%>%
+#   dplyr::select(geometry,Legend)
+# streetTrees2015 <- reports311_2015 %>%
+#   filter(grepl("Street Trees",type))%>%
+#   dplyr::select(geometry,Legend)
+# streetTrees2016 <- reports311_2016 %>%
+#   filter(grepl("Street Trees",type))%>%
+#   dplyr::select(geometry,Legend)
+# streetTrees2017 <- reports311_2017 %>%
+#   filter(grepl("Street Trees",type))%>%
+#   dplyr::select(geometry,Legend)
+# streetTrees2018 <- reports311_2018 %>%
+#   filter(grepl("Street Trees",type))%>%
+#   dplyr::select(geometry,Legend)
+# streetTrees2019 <- reports311_2019 %>%
+#   filter(grepl("Street Trees",type))%>%
+#   dplyr::select(geometry,Legend)
 
-dangsidewalk2014 <- reports311_2014 %>%
-  filter(grepl("Dangerous Sidewalk",type))%>%
-  dplyr::select(geometry,Legend)
-dangsidewalk2015 <- reports311_2015 %>%
-  filter(grepl("Dangerous Sidewalk",type))%>%
-  dplyr::select(geometry,Legend)
-dangsidewalk2016 <- reports311_2016 %>%
-  filter(grepl("Dangerous Sidewalk",type))%>%
-  dplyr::select(geometry,Legend)
-dangsidewalk2017 <- reports311_2017 %>%
-  filter(grepl("Dangerous Sidewalk",type))%>%
-  dplyr::select(geometry,Legend)
-dangsidewalk2018 <- reports311_2018 %>%
-  filter(grepl("Dangerous Sidewalk",type))%>%
-  dplyr::select(geometry,Legend)
-dangsidewalk2019 <- reports311_2019 %>%
-  filter(grepl("Dangerous Sidewalk",type))%>%
-  dplyr::select(geometry,Legend)
+trees_net14 <-
+    dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Street Trees",type)))) %>%
+    mutate(count_trees = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_trees14 = replace_na(count_trees, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_trees)
 
-homeless2014 <- reports311_2014 %>%
-  filter(grepl("Homeless Encampment Request",type))%>%
-  dplyr::select(geometry,Legend)
-homeless2015 <- reports311_2015 %>%
-  filter(grepl("Homeless Encampment Request",type))%>%
-  dplyr::select(geometry,Legend)
-homeless2016 <- reports311_2016 %>%
-  filter(grepl("Homeless Encampment Request",type))%>%
-  dplyr::select(geometry,Legend)
-homeless2017 <- reports311_2017 %>%
-  filter(grepl("Homeless Encampment Request",type))%>%
-  dplyr::select(geometry,Legend)
-homeless2018 <- reports311_2018 %>%
-  filter(grepl("Homeless Encampment Request",type))%>%
-  dplyr::select(geometry,Legend)
-homeless2019 <- reports311_2019 %>%
-  filter(grepl("Homeless Encampment Request",type))%>%
-  dplyr::select(geometry,Legend)
+trees_net15 <-
+    dplyr::select(reports311 %>% filter((Year == "2015")&(grepl("Street Trees",type)))) %>%
+    mutate(count_trees = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_trees15 = replace_na(count_trees, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_trees)
 
-PPRops2014 <- reports311_2014 %>%
-  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
-  dplyr::select(geometry,Legend)
-PPRops2015 <- reports311_2015 %>%
-  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
-  dplyr::select(geometry,Legend)
-PPRops2016 <- reports311_2016 %>%
-  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
-  dplyr::select(geometry,Legend)
-PPRops2017 <- reports311_2017 %>%
-  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
-  dplyr::select(geometry,Legend)
-PPRops2018 <- reports311_2018 %>%
-  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
-  dplyr::select(geometry,Legend)
-PPRops2019 <- reports311_2019 %>%
-  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
-  dplyr::select(geometry,Legend)
+trees_net16 <-
+    dplyr::select(reports311 %>% filter((Year == "2016")&(grepl("Street Trees",type)))) %>%
+    mutate(count_trees = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_trees16 = replace_na(count_trees, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_trees)
+
+trees_net17 <-
+    dplyr::select(reports311 %>% filter((Year == "2017")&(grepl("Street Trees",type)))) %>%
+    mutate(count_trees = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_trees17 = replace_na(count_trees, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_trees)
+
+trees_net18 <-
+    dplyr::select(reports311 %>% filter((Year == "2018")&(grepl("Street Trees",type)))) %>%
+    mutate(count_trees = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_trees18 = replace_na(count_trees, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_trees)
+
+trees_net19 <-
+    dplyr::select(reports311 %>% filter((Year == "2019")&(grepl("Street Trees",type)))) %>%
+    mutate(count_trees = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_trees19 = replace_na(count_trees, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_trees)
+
+# dangsidewalk2014 <- reports311_2014 %>%
+#   filter(grepl("Dangerous Sidewalk",type))%>%
+#   dplyr::select(geometry,Legend)
+# dangsidewalk2015 <- reports311_2015 %>%
+#   filter(grepl("Dangerous Sidewalk",type))%>%
+#   dplyr::select(geometry,Legend)
+# dangsidewalk2016 <- reports311_2016 %>%
+#   filter(grepl("Dangerous Sidewalk",type))%>%
+#   dplyr::select(geometry,Legend)
+# dangsidewalk2017 <- reports311_2017 %>%
+#   filter(grepl("Dangerous Sidewalk",type))%>%
+#   dplyr::select(geometry,Legend)
+# dangsidewalk2018 <- reports311_2018 %>%
+#   filter(grepl("Dangerous Sidewalk",type))%>%
+#   dplyr::select(geometry,Legend)
+# dangsidewalk2019 <- reports311_2019 %>%
+#   filter(grepl("Dangerous Sidewalk",type))%>%
+#   dplyr::select(geometry,Legend)
+
+dangSidewalk_net14 <-
+    dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Dangerous Sidewalk",type)))) %>%
+    mutate(count_dangSidewalk = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dangSidewalk14 = replace_na(count_dangSidewalk, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dangSidewalk)
+
+dangSidewalk_net15 <-
+    dplyr::select(reports311 %>% filter((Year == "2015")&(grepl("Dangerous Sidewalk",type)))) %>%
+    mutate(count_dangSidewalk = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dangSidewalk15 = replace_na(count_dangSidewalk, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dangSidewalk)
+
+dangSidewalk_net16 <-
+    dplyr::select(reports311 %>% filter((Year == "2016")&(grepl("Dangerous Sidewalk",type)))) %>%
+    mutate(count_dangSidewalk = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dangSidewalk16 = replace_na(count_dangSidewalk, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dangSidewalk)
+
+dangSidewalk_net17 <-
+    dplyr::select(reports311 %>% filter((Year == "2017")&(grepl("Dangerous Sidewalk",type)))) %>%
+    mutate(count_dangSidewalk = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dangSidewalk17 = replace_na(count_dangSidewalk, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dangSidewalk)
+
+dangSidewalk_net18 <-
+    dplyr::select(reports311 %>% filter((Year == "2018")&(grepl("Dangerous Sidewalk",type)))) %>%
+    mutate(count_dangSidewalk = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dangSidewalk18 = replace_na(count_dangSidewalk, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dangSidewalk)
+
+dangSidewalk_net19 <-
+    dplyr::select(reports311 %>% filter((Year == "2019")&(grepl("Dangerous Sidewalk",type)))) %>%
+    mutate(count_dangSidewalk = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_dangSidewalk19 = replace_na(count_dangSidewalk, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_dangSidewalk)
+
+
+# homeless2014 <- reports311_2014 %>%
+#   filter(grepl("Homeless Encampment Request",type))%>%
+#   dplyr::select(geometry,Legend)
+# homeless2015 <- reports311_2015 %>%
+#   filter(grepl("Homeless Encampment Request",type))%>%
+#   dplyr::select(geometry,Legend)
+# homeless2016 <- reports311_2016 %>%
+#   filter(grepl("Homeless Encampment Request",type))%>%
+#   dplyr::select(geometry,Legend)
+# homeless2017 <- reports311_2017 %>%
+#   filter(grepl("Homeless Encampment Request",type))%>%
+#   dplyr::select(geometry,Legend)
+# homeless2018 <- reports311_2018 %>%
+#   filter(grepl("Homeless Encampment Request",type))%>%
+#   dplyr::select(geometry,Legend)
+# homeless2019 <- reports311_2019 %>%
+#   filter(grepl("Homeless Encampment Request",type))%>%
+#   dplyr::select(geometry,Legend)
+# 
+# PPRops2014 <- reports311_2014 %>%
+#   filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+#   dplyr::select(geometry,Legend)
+# PPRops2015 <- reports311_2015 %>%
+#   filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+#   dplyr::select(geometry,Legend)
+# PPRops2016 <- reports311_2016 %>%
+#   filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+#   dplyr::select(geometry,Legend)
+# PPRops2017 <- reports311_2017 %>%
+#   filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+#   dplyr::select(geometry,Legend)
+# PPRops2018 <- reports311_2018 %>%
+#   filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+#   dplyr::select(geometry,Legend)
+# PPRops2019 <- reports311_2019 %>%
+#   filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+#   dplyr::select(geometry,Legend)
+
+PPRops_net14 <-
+    dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Parks and Rec Safety and Maintenance",type)))) %>%
+    mutate(count_PPRops = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_PPRops14 = replace_na(count_PPRops, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_PPRops)
+
+PPRops_net15 <-
+    dplyr::select(reports311 %>% filter((Year == "2015")&(grepl("Parks and Rec Safety and Maintenance",type)))) %>%
+    mutate(count_PPRops = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_PPRops15 = replace_na(count_PPRops, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_PPRops)
+
+PPRops_net16 <-
+    dplyr::select(reports311 %>% filter((Year == "2016")&(grepl("Parks and Rec Safety and Maintenance",type)))) %>%
+    mutate(count_PPRops = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_PPRops16 = replace_na(count_PPRops, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_PPRops)
+
+PPRops_net17 <-
+    dplyr::select(reports311 %>% filter((Year == "2017")&(grepl("Parks and Rec Safety and Maintenance",type)))) %>%
+    mutate(count_PPRops = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_PPRops17 = replace_na(count_PPRops, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_PPRops)
+
+PPRops_net18 <-
+    dplyr::select(reports311 %>% filter((Year == "2018")&(grepl("Parks and Rec Safety and Maintenance",type)))) %>%
+    mutate(count_PPRops = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_PPRops18 = replace_na(count_PPRops, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_PPRops)
+
+PPRops_net19 <-
+    dplyr::select(reports311 %>% filter((Year == "2019")&(grepl("Parks and Rec Safety and Maintenance",type)))) %>%
+    mutate(count_PPRops = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_PPRops19 = replace_na(count_PPRops, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_PPRops)
 
 vacant2014 <- reports311_2014 %>%
   filter(grepl("Vacant House or Commercial",type))%>%
@@ -737,6 +1066,114 @@ vacant2018 <- reports311_2018 %>%
 vacant2019 <- reports311_2019 %>%
   filter(grepl("Vacant House or Commercial",type))%>%
   dplyr::select(geometry,Legend)
+
+vacant_net14 <-
+    dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Vacant House or Commercial",type)))) %>%
+    mutate(count_vacant = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_vacant14 = replace_na(count_vacant, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_vacant)
+
+vacant_net15 <-
+    dplyr::select(reports311 %>% filter((Year == "2015")&(grepl("Vacant House or Commercial",type)))) %>%
+    mutate(count_vacant = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_vacant15 = replace_na(count_vacant, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_vacant)
+
+vacant_net16 <-
+    dplyr::select(reports311 %>% filter((Year == "2016")&(grepl("Vacant House or Commercial",type)))) %>%
+    mutate(count_vacant = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_vacant16 = replace_na(count_vacant, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_vacant)
+
+vacant_net17 <-
+    dplyr::select(reports311 %>% filter((Year == "2017")&(grepl("Vacant House or Commercial",type)))) %>%
+    mutate(count_vacant = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_vacant17 = replace_na(count_vacant, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_vacant)
+
+vacant_net18 <-
+    dplyr::select(reports311 %>% filter((Year == "2018")&(grepl("Vacant House or Commercial",type)))) %>%
+    mutate(count_vacant = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_vacant18 = replace_na(count_vacant, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_vacant)
+
+vacant_net19 <-
+    dplyr::select(reports311 %>% filter((Year == "2019")&(grepl("Vacant House or Commercial",type)))) %>%
+    mutate(count_vacant = 1) %>%
+    aggregate(., fishnet, sum) %>%
+    mutate(count_vacant19 = replace_na(count_vacant, 0),
+           uniqueID = as.numeric(rownames(.)),
+           cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
+  dplyr::select(-count_vacant)
+
+
+trees_net_allyrs <- trees_net14 %>% 
+#    dplyr::select(-count_permits) %>% 
+    st_join(trees_net15) %>% 
+  st_join(trees_net16) %>% 
+    st_join(trees_net17) %>% 
+    st_join(trees_net18) %>% 
+    st_join(trees_net19)
+
+vacant_net_allyrs <- vacant_net14%>% 
+#    dplyr::select(-count_permits) %>% 
+    st_join(vacant_net15) %>% 
+    st_join(vacant_net16) %>% 
+    st_join(vacant_net17) %>% 
+    st_join(vacant_net18) %>%
+  st_join(vacant_net19)
+  
+PPRops_net_allyrs <- PPRops_net14%>% 
+#    dplyr::select(-count_permits) %>% 
+    st_join(PPRops_net15) %>% 
+    st_join(PPRops_net16) %>% 
+    st_join(PPRops_net17) %>% 
+    st_join(PPRops_net18) %>%
+  st_join(PPRops_net19)
+
+dumping_net_allyrs <- dumping_net14%>% 
+#    dplyr::select(-count_permits) %>% 
+    st_join(dumping_net15) %>% 
+    st_join(dumping_net16) %>% 
+    st_join(dumping_net17) %>% 
+    st_join(dumping_net18) %>%
+  st_join(dumping_net19)
+
+dangSidewalk_net_allyrs <- dangSidewalk_net14%>% 
+#    dplyr::select(-count_permits) %>% 
+    st_join(dangSidewalk_net15) %>% 
+    st_join(dangSidewalk_net16) %>% 
+    st_join(dangSidewalk_net17) %>% 
+    st_join(dangSidewalk_net18) %>%
+  st_join(dangSidewalk_net19)
+
+BuildComplain_net_allyrs <- buildComplain_net14%>% 
+#    dplyr::select(-count_permits) %>% 
+    st_join(buildComplain_net15) %>% 
+    st_join(buildComplain_net16) %>% 
+    st_join(buildComplain_net17) %>% 
+    st_join(buildComplain_net18) %>%
+  st_join(buildComplain_net19)
+
+all311Nets <- 
+
+
+
 
 reports311_2013_to_2018 <- reports311 %>%
   filter(Year >= "2013" & Year <= "2018")%>%
