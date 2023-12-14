@@ -336,6 +336,7 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 ```{r data download + wrangling, results='hide'}
 # philly permit data
+#only have to use this section the first time
 dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
 #
 # # only keep new construction permits
@@ -344,18 +345,18 @@ dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&
      mutate(year = substr(permitissuedate, 1,4)) %>%
      filter(year %in% c(2010:2019,2022)) %>%
      st_transform(crs = 2272)
-  
+
 
 # TODO:
 # need to further limit this to permits between 2011-2021, to then predict 2022 data
 
-# write out smaller geojson file
-# st_write(newcon_permits,"Assignments/HW07-Final/data/newcon_permits.geojson")
-
-# rm(dat_permit)
-
-# newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson") #%>%
-#   st_transform(crs = 2272)
+# # write out smaller geojson file
+#  st_write(newcon_permits,"data/newcon_permits.geojson")
+# 
+#  rm(dat_permit)
+# 
+#  newcon_permits <- st_read("data/newcon_permits.geojson") #%>%
+# rm(newcon_permits)
 # for some reason, points are coming out as empty from this geojson
 # this timee it worked?? idk what's going on
 
@@ -495,14 +496,19 @@ carto_url = "https://phl.carto.com/api/v2/sql"
 table_name_311 = "public_cases_fc"
 
 # query
-where_311 = "closed_datetime >= '2010-01-01' AND closed_datetime < '2020-01-01' AND service_name = 'Rubbish/Recyclable Material Collection'"
+where_311 = "closed_datetime >= '2010-01-01' AND closed_datetime < '2020-01-01' AND service_name IN ('Rubbish/Recyclable Material Collection','Illegal Dumping','Construction Complaints', 'Building Construction', 'Sanitation Violation', 'Street Trees', 'Dangerous Sidewalk', 'Homeless Encampment Request', 'Parks and Rec Safety and Maintenance', 'Vacant House or Commercial')"
 
 query311 = paste("SELECT *",
               "FROM", table_name_311,
               "WHERE", where_311)
 
-reports311 = rphl::get_carto(query311, format = "csv", base_url = carto_url, stringsAsFactors = F)%>%
-     mutate(Year = year(format.Date(reports311$closed_datetime)))
+reports311 = rphl::get_carto(query311, format = "csv", base_url = carto_url, stringsAsFactors = F)
+reports311 <- reports311 %>%
+  mutate(Year = year(format.Date(reports311$closed_datetime)))
+# st_write(reports311,"data/reports311_local.geojson")
+# rm(reports311)
+# reports311_local <- reports311_local %>%
+#   mutate(Year = year(format.Date(reports311$closed_datetime)))6
   #mutate(date = format(as.POSIXct(reports311$closed_datetime, format = "%m/%d/%Y %H:%M:%S")))
 # format(Date, format="%Y")
   # mutate(Year = year(as.POSIXct(closed_datetime, format = "%Y/%m/%d %H:%M:%S")))
@@ -512,29 +518,224 @@ reports311 <- reports311 %>%
    st_as_sf(coords = c("lon","lat"), crs = 4326) %>%
   #st_transform('ESRI:102728') %>%
   st_transform(crs = 2272) %>% 
-  mutate(Legend = "311") %>% 
-   dplyr::select(Legend, geometry, Year)
+  mutate(
+    type = service_name,
+    Legend = "311") %>% 
+   dplyr::select(Legend, type, geometry, Year)
 
 reports311_2013 <- reports311 %>%
   filter(Year == "2013")%>%
-  dplyr::select(geometry,Legend)
+  dplyr::select(type, geometry,Legend)
 reports311_2014 <- reports311 %>%
   filter(Year == "2014")%>%
-  dplyr::select(geometry,Legend)
+  dplyr::select(type, geometry,Legend)
 reports311_2015 <- reports311 %>%
   filter(Year == "2015")%>%
-  dplyr::select(geometry,Legend)
+  dplyr::select(type, geometry,Legend)
 reports311_2016 <- reports311 %>%
   filter(Year == "2016")%>%
-  dplyr::select(geometry,Legend)
+  dplyr::select(type, geometry,Legend)
 reports311_2017 <- reports311 %>%
   filter(Year == "2017")%>%
-  dplyr::select(geometry,Legend)
+  dplyr::select(type, geometry,Legend)
 reports311_2018 <- reports311 %>%
   filter(Year == "2018")%>%
-  dplyr::select(geometry,Legend)
+  dplyr::select(type, geometry,Legend)
 reports311_2019 <- reports311 %>%
   filter(Year == "2019")%>%
+  dplyr::select(type, geometry,Legend)
+
+
+dumping2014 <- reports311_2014 %>%
+  filter(grepl("Illegal Dumping",type))%>%
+  dplyr::select(geometry,Legend)
+dumping2015 <- reports311_2015 %>%
+  filter(grepl("Illegal Dumping",type))%>%
+  dplyr::select(geometry,Legend)
+dumping2016 <- reports311_2016 %>%
+  filter(grepl("Illegal Dumping",type))%>%
+  dplyr::select(geometry,Legend)
+dumpng2017 <- reports311_2017 %>%
+  filter(grepl("Illegal Dumping",type))%>%
+  dplyr::select(geometry,Legend)
+dumping2018 <- reports311_2018 %>%
+  filter(grepl("Illegal Dumping",type))%>%
+  dplyr::select(geometry,Legend)
+dumping2019 <- reports311_2019 %>%
+  filter(grepl("Illegal Dumping",type))%>%
+  dplyr::select(geometry,Legend)
+
+constructionComplain2014 <- reports311_2014 %>%
+  filter(grepl("Construction Complaints",type))%>%
+  dplyr::select(geometry,Legend)
+constructionComplain2015 <- reports311_2015 %>%
+  filter(grepl("Construction Complaints",type))%>%
+  dplyr::select(geometry,Legend)
+constructionComplain2016 <- reports311_2016 %>%
+  filter(grepl("Construction Complaints",type))%>%
+  dplyr::select(geometry,Legend)
+constructionComplain2017 <- reports311_2017 %>%
+  filter(grepl("Construction Complaints",type))%>%
+  dplyr::select(geometry,Legend)
+constructionComplain2018 <- reports311_2018 %>%
+  filter(grepl("Construction Complaints",type))%>%
+  dplyr::select(geometry,Legend)
+constructionComplain2019 <- reports311_2019 %>%
+  filter(grepl("Construction Complaints",type))%>%
+  dplyr::select(geometry,Legend)
+
+construction2014 <- reports311_2014 %>%
+  filter(grepl("Building Construction",type))%>%
+  dplyr::select(geometry,Legend)
+construction2015 <- reports311_2015 %>%
+  filter(grepl("Building Construction",type))%>%
+  dplyr::select(geometry,Legend)
+construction2016 <- reports311_2016 %>%
+  filter(grepl("Building Construction",type))%>%
+  dplyr::select(geometry,Legend)
+construction2017 <- reports311_2017 %>%
+  filter(grepl("Building Construction",type))%>%
+  dplyr::select(geometry,Legend)
+construction2018 <- reports311_2018 %>%
+  filter(grepl("Building Construction",type))%>%
+  dplyr::select(geometry,Legend)
+construction2019 <- reports311_2019 %>%
+  filter(grepl("Building Construction",type))%>%
+  dplyr::select(geometry,Legend)
+
+
+sanitation2014 <- reports311_2014 %>%
+  filter(grepl("Sanitation Violation",type))%>%
+  dplyr::select(geometry,Legend)
+sanitation2015 <- reports311_2015 %>%
+  filter(grepl("Sanitation Violation",type))%>%
+  dplyr::select(geometry,Legend)
+sanitation2016 <- reports311_2016 %>%
+  filter(grepl("Sanitation Violation",type))%>%
+  dplyr::select(geometry,Legend)
+sanitation2017 <- reports311_2017 %>%
+  filter(grepl("Sanitation Violation",type))%>%
+  dplyr::select(geometry,Legend)
+sanitation2018 <- reports311_2018 %>%
+  filter(grepl("Sanitation Violation",type))%>%
+  dplyr::select(geometry,Legend)
+sanitation2019 <- reports311_2019 %>%
+  filter(grepl("Sanitation Violation",type))%>%
+  dplyr::select(geometry,Legend)
+
+
+dumpster2014 <- reports311_2014 %>%
+  filter(grepl("Dumpster Violation",type))%>%
+  dplyr::select(geometry,Legend)
+dumpster2015 <- reports311_2015 %>%
+  filter(grepl("Dumpster Violation",type))%>%
+  dplyr::select(geometry,Legend)
+dumpster2016 <- reports311_2016 %>%
+  filter(grepl("Dumpster Violation",type))%>%
+  dplyr::select(geometry,Legend)
+dumpster2017 <- reports311_2017 %>%
+  filter(grepl("Dumpster Violation",type))%>%
+  dplyr::select(geometry,Legend)
+dumpster2018 <- reports311_2018 %>%
+  filter(grepl("Dumpster Violation",type))%>%
+  dplyr::select(geometry,Legend)
+dumpster2019 <- reports311_2019 %>%
+  filter(grepl("Dumpster Violation",type))%>%
+  dplyr::select(geometry,Legend)
+
+streetTrees2014 <- reports311_2014 %>%
+  filter(grepl("Street Trees",type))%>%
+  dplyr::select(geometry,Legend)
+streetTrees2015 <- reports311_2015 %>%
+  filter(grepl("Street Trees",type))%>%
+  dplyr::select(geometry,Legend)
+streetTrees2016 <- reports311_2016 %>%
+  filter(grepl("Street Trees",type))%>%
+  dplyr::select(geometry,Legend)
+streetTrees2017 <- reports311_2017 %>%
+  filter(grepl("Street Trees",type))%>%
+  dplyr::select(geometry,Legend)
+streetTrees2018 <- reports311_2018 %>%
+  filter(grepl("Street Trees",type))%>%
+  dplyr::select(geometry,Legend)
+streetTrees2019 <- reports311_2019 %>%
+  filter(grepl("Street Trees",type))%>%
+  dplyr::select(geometry,Legend)
+
+dangsidewalk2014 <- reports311_2014 %>%
+  filter(grepl("Dangerous Sidewalk",type))%>%
+  dplyr::select(geometry,Legend)
+dangsidewalk2015 <- reports311_2015 %>%
+  filter(grepl("Dangerous Sidewalk",type))%>%
+  dplyr::select(geometry,Legend)
+dangsidewalk2016 <- reports311_2016 %>%
+  filter(grepl("Dangerous Sidewalk",type))%>%
+  dplyr::select(geometry,Legend)
+dangsidewalk2017 <- reports311_2017 %>%
+  filter(grepl("Dangerous Sidewalk",type))%>%
+  dplyr::select(geometry,Legend)
+dangsidewalk2018 <- reports311_2018 %>%
+  filter(grepl("Dangerous Sidewalk",type))%>%
+  dplyr::select(geometry,Legend)
+dangsidewalk2019 <- reports311_2019 %>%
+  filter(grepl("Dangerous Sidewalk",type))%>%
+  dplyr::select(geometry,Legend)
+
+homeless2014 <- reports311_2014 %>%
+  filter(grepl("Homeless Encampment Request",type))%>%
+  dplyr::select(geometry,Legend)
+homeless2015 <- reports311_2015 %>%
+  filter(grepl("Homeless Encampment Request",type))%>%
+  dplyr::select(geometry,Legend)
+homeless2016 <- reports311_2016 %>%
+  filter(grepl("Homeless Encampment Request",type))%>%
+  dplyr::select(geometry,Legend)
+homeless2017 <- reports311_2017 %>%
+  filter(grepl("Homeless Encampment Request",type))%>%
+  dplyr::select(geometry,Legend)
+homeless2018 <- reports311_2018 %>%
+  filter(grepl("Homeless Encampment Request",type))%>%
+  dplyr::select(geometry,Legend)
+homeless2019 <- reports311_2019 %>%
+  filter(grepl("Homeless Encampment Request",type))%>%
+  dplyr::select(geometry,Legend)
+
+PPRops2014 <- reports311_2014 %>%
+  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+  dplyr::select(geometry,Legend)
+PPRops2015 <- reports311_2015 %>%
+  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+  dplyr::select(geometry,Legend)
+PPRops2016 <- reports311_2016 %>%
+  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+  dplyr::select(geometry,Legend)
+PPRops2017 <- reports311_2017 %>%
+  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+  dplyr::select(geometry,Legend)
+PPRops2018 <- reports311_2018 %>%
+  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+  dplyr::select(geometry,Legend)
+PPRops2019 <- reports311_2019 %>%
+  filter(grepl("Parks and Rec Safety and Maintenance",type))%>%
+  dplyr::select(geometry,Legend)
+
+vacant2014 <- reports311_2014 %>%
+  filter(grepl("Vacant House or Commercial",type))%>%
+  dplyr::select(geometry,Legend)
+vacant2015 <- reports311_2015 %>%
+  filter(grepl("Vacant House or Commercial",type))%>%
+  dplyr::select(geometry,Legend)
+vacant2016 <- reports311_2016 %>%
+  filter(grepl("Vacant House or Commercial",type))%>%
+  dplyr::select(geometry,Legend)
+vacant2017 <- reports311_2017 %>%
+  filter(grepl("Vacant House or Commercial",type))%>%
+  dplyr::select(geometry,Legend)
+vacant2018 <- reports311_2018 %>%
+  filter(grepl("Vacant House or Commercial",type))%>%
+  dplyr::select(geometry,Legend)
+vacant2019 <- reports311_2019 %>%
+  filter(grepl("Vacant House or Commercial",type))%>%
   dplyr::select(geometry,Legend)
 
 reports311_2013_to_2018 <- reports311 %>%
