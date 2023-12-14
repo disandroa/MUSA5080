@@ -490,8 +490,89 @@
     st_sf() %>%              
     mutate(uniqueID = 1:n()) 
   
-  permit_net13 <- 
-    dplyr::select(newcon_permits %>% filter(year == "2013")) %>% 
+  # 2013 
+  {
+    permit_net13 <- 
+      dplyr::select(newcon_permits %>% filter(year == "2013")) %>% 
+      mutate(count_permits = 1) %>% 
+      aggregate(., fishnet, sum) %>%
+      mutate(count_permits13 = replace_na(count_permits, 0),
+             uniqueID = as.numeric(rownames(.)),
+             cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))
+  }
+  
+  # 2014
+  {
+    permit_net14 <- 
+      dplyr::select(newcon_permits %>% filter(year == "2014")) %>% 
+      mutate(count_permits = 1) %>% 
+      aggregate(., fishnet, sum) %>%
+      mutate(count_permits14 = replace_na(count_permits, 0)) %>% 
+      dplyr::select(-count_permits)
+  }
+  
+  # 2015
+  {
+    permit_net15 <- 
+      dplyr::select(newcon_permits %>% filter(year == "2015")) %>% 
+      mutate(count_permits = 1) %>% 
+      aggregate(., fishnet, sum) %>%
+      mutate(count_permits15 = replace_na(count_permits, 0)) %>% 
+      dplyr::select(-count_permits)
+  }
+  
+  # 2016
+  {
+    permit_net16 <- 
+      dplyr::select(newcon_permits %>% filter(year == "2016")) %>% 
+      mutate(count_permits = 1) %>% 
+      aggregate(., fishnet, sum) %>%
+      mutate(count_permits16 = replace_na(count_permits, 0)) %>% 
+      dplyr::select(-count_permits)
+  }
+  
+  # 2017
+  {
+    permit_net17 <- 
+      dplyr::select(newcon_permits %>% filter(year == "2017")) %>% 
+      mutate(count_permits = 1) %>% 
+      aggregate(., fishnet, sum) %>%
+      mutate(count_permits17 = replace_na(count_permits, 0)) %>% 
+      dplyr::select(-count_permits)
+  }
+  
+  # 2018
+  {
+    permit_net18 <- 
+      dplyr::select(newcon_permits %>% filter(year == "2018")) %>% 
+      mutate(count_permits = 1) %>% 
+      aggregate(., fishnet, sum) %>%
+      mutate(count_permits18 = replace_na(count_permits, 0)) %>% 
+      dplyr::select(-count_permits)
+  }
+  
+  # 2019
+  {
+    permit_net19 <- 
+      dplyr::select(newcon_permits %>% filter(year == "2019")) %>% 
+      mutate(count_permits = 1) %>% 
+      aggregate(., fishnet, sum) %>%
+      mutate(count_permits19 = replace_na(count_permits, 0)) %>% 
+      dplyr::select(-count_permits)
+  }
+  
+  # combine permit counts from all years
+  permit_net_allyrs <- permit_net13 %>% 
+    dplyr::select(-count_permits) %>% 
+    st_join(permit_net14) %>% 
+    st_join(permit_net15) %>% 
+    st_join(permit_net16) %>% 
+    st_join(permit_net17) %>% 
+    st_join(permit_net18) %>% 
+    st_join(permit_net19) 
+  
+  permit_net <- 
+    dplyr::select(newcon_permits) %>% 
     mutate(count_permits = 1) %>% 
     aggregate(., fishnet, sum) %>%
     mutate(count_permits = replace_na(count_permits, 0),
