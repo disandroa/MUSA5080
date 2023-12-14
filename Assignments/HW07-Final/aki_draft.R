@@ -54,168 +54,299 @@
   newcon_permits <- st_read("Assignments/HW07-Final/data/newcon_permits.geojson")
   
   # census data
-  # variables of interest:
-  # B19013_001 - medHHincome
-  # B25026_001 - total pop 
-  # B02001_002 - white pop
-  # med home value (if possible)
-  # B25058_001 - median rent
-  # B15003_022 - attainment of bachelor's of population 25+
-  acs_variable_list.2013 <- load_variables(2013, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  acs_variable_list.2014 <- load_variables(2014, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  acs_variable_list.2015 <- load_variables(2015, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  acs_variable_list.2016 <- load_variables(2016, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  acs_variable_list.2017 <- load_variables(2017, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  acs_variable_list.2018 <- load_variables(2018, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  acs_variable_list.2019 <- load_variables(2019, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE) %>% 
-    filter(geography == "block group")
-  
-  acs_variable_list.2022 <- load_variables(2022, #year
-                                           "acs5", #five year ACS estimates
-                                           cache = TRUE)
-  
-  # other variables of interest
-  # B25071_001: Median gross rent as a percentage of household income (past year)
-  # B07010_001: Geographical Mobility in the Past Year by Individual Income in the Past 12 Months (in 2022 Inflation-Adjusted Dollars) for Current Residence in the United States
-  # B07201_001: Geographical Mobility in the Past Year for Current Residence--Metropolitan Statistical Area Level in the United States, estimated total
-  # B07201_002: Geographical Mobility in the Past Year for Current Residence--Metropolitan Statistical Area Level in the United States, same house 1 year ago 
-  # B07202_001: Geographical Mobility in the Past Year for Current Residence--Micropolitan Statistical Area Level in the United States, estimatedd total
-  # B07202_002: Geographical Mobility in the Past Year for Current Residence--Micropolitan Statistical Area Level in the United States, same house 1 year ago
-  # B07204_006: Geographical Mobility in the Past Year for Current Residence--State, County and Place Level in the United States, same city, different county as 1 year ago
-  # B07401_049: living in area 1 year ago, moved to dif county within same state
-  # B07401_050: living in area 1 year ago, moved to dif county within same state 1-4 years
-  # Geographical Mobility in the Past Year by Tenure for Current Residence in the United States
-  # B07013_003: Householder lived in renter-occupied housing units
-  # B07013_006: Same house 1 year ago:!!Householder lived in renter-occupied housing units
-  # B07013_009: Moved within same county:!!Householder lived in renter-occupied housing units
-  # B07013_012: Moved from different county within same state:!!Householder lived in renter-occupied housing units
-  # B07013_015: Moved from different state:!!Householder lived in renter-occupied housing units
-  # B07013_018: Moved from abroad:!!Householder lived in renter-occupied housing units
-  # same, but 1 year ago
-  # B07413_003,B07413_006,B07413_009,B07413_012,B07413_015
-  
-  # more vars
-  # B25003_002: tenure, owner occupied
-  # B25003_003: tenure, renter occupied
-  # B25008_002: total population in occupied housing by tenure, owner occupied
-  # B25008_003: total population in occupied housing by tenure, renter occupied
-  # B99082_001: allocation of private vehicle occupance
-  # B992512_001: allocation of vehicles available
-  # B25044_001: tenure by vehicles available
-  # B25046_001: aggregate number of vehicles available
-  # B09002_001: own children under 18
-  # B11004_001: related children under 18
-  
-  
-  # census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E","B25071_001E","B07010_001E",
-  # "B07201_001E","B07201_002E","B07202_001E","B07202_002E","B07204_006E","B07401_049E","B07401_050E","B07013_003E",
-  # "B07013_006E","B07013_009E","B07013_012E","B07013_015E","B07013_018E") # census variables of interest 
-  
-  census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E",
-                   "B25071_001E","B07201_001E","B07201_002E","B07202_001E","B07202_002E") # census variables of interest that are available
-  
-  med_inc2012 <- some_num
-  med_inc2017 <- some_num
-  med_inc2022 <- some_num
+  {
+    acs_variable_list.2019 <- load_variables(2019, #year
+                                             "acs5", #five year ACS estimates
+                                             cache = TRUE) %>% 
+      filter(geography == "block group")
     
-  tracts13 <- 
-    get_acs(geography = "block group", 
-            variables = census_vars, 
-            year = 2013, state = 42,
-            geometry = T, output = "wide") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(!matches("M$")) %>% 
-    rename(total_pop = B01001_001E,
-           bachelors25 = B15003_022E,
-           med_hh_inc = B19013_001E,
-           white_pop = B02001_002E,
-           med_rent = B25058_001E,
-           pct_rent_hhinc = B25071_001E,
-           mobility_tot_metro = B07201_001E,
-           samehouse1yr_metro = B07201_002E,
-           mobility_tot_micro = B07202_001E,
-           samehouse1yr_micro = B07202_002E,
-           ) %>%
-    mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
-           RaceContext = ifelse(pct_white > 0.5, "Majority White", 
-                                ifelse(total_pop != 0 , "Majority non-White", NA)),
-           year = "2013")
-  
-  tracts18 <- 
-    get_acs(geography = "block group", 
-            variables = census_vars, 
-            year = 2018, state = 42,
-            geometry = T, output = "wide") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(!matches("M$")) %>% 
-    rename(total_pop = B01001_001E,
-           bachelors25 = B15003_022E,
-           med_hh_inc = B19013_001E,
-           white_pop = B02001_002E,
-           med_rent = B25058_001E,
-           pct_rent_hhinc = B25071_001E,
-           mobility_tot_metro = B07201_001E,
-           samehouse1yr_metro = B07201_002E,
-           mobility_tot_micro = B07202_001E,
-           samehouse1yr_micro = B07202_002E
-           ) %>%
-    mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
-           RaceContext = ifelse(pct_white > 0.5, "Majority White", 
-                                ifelse(total_pop != 0 , "Majority non-White", NA)),
-           year = "2018")
-  
-  tracts22 <- 
-    get_acs(geography = "block group", 
-            variables = census_vars, 
-            year = 2022, state = 42,
-            geometry = T, output = "wide") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(!matches("M$")) %>% 
-    rename(total_pop = B01001_001E,
-           bachelors25 = B15003_022E,
-           med_hh_inc = B19013_001E,
-           white_pop = B02001_002E,
-           med_rent = B25058_001E,
-           pct_rent_hhinc = B25071_001E,
-           # inc_mobility1yr = B07010_001E,
-           mobility_tot_metro = B07201_001E,
-           samehouse1yr_metro = B07201_002E,
-           mobility_tot_micro = B07202_001E,
-           samehouse1yr_micro = B07202_002E #,
-           # samecity_difcounty1yr = B07204_006E,           # all commented out columns consiste of missing values
-           # samestate_difcounty1yr = B07401_049E,
-           # samestate_difcounty1to4yr = B07401_050E,
-           # rent_housing = B07013_003E,
-           # same_rent_housing1yr = B07013_006E,
-           # samecounty_rent_housing1yr = B07013_009E,
-           # difcounty_rent_housing1yr = B07013_012E, # same state
-           # difstate_rent_housing1yr = B07013_015E,
-           # difcountry_rent_housing1yr = B07013_018E
-           ) %>%
-    mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
-           RaceContext = ifelse(pct_white > 0.5, "Majority White", 
-                                ifelse(total_pop != 0 , "Majority non-White", NA)),
-           year = "2022")
+    # variables of interest:
+    # B19013_001 - medHHincome
+    # B25026_001 - total pop 
+    # B02001_002 - white pop
+    # B25058_001 - median rent
+    # B15003_022 - attainment of bachelor's of population 25+
+    # B25071_001: Median gross rent as a percentage of household income (past year)
+    # B07010_001: Geographical Mobility in the Past Year by Individual Income in the Past 12 Months (in 2022 Inflation-Adjusted Dollars) for Current Residence in the United States
+    # B07201_001: Geographical Mobility in the Past Year for Current Residence--Metropolitan Statistical Area Level in the United States, estimated total
+    # B07201_002: Geographical Mobility in the Past Year for Current Residence--Metropolitan Statistical Area Level in the United States, same house 1 year ago 
+    # B07202_001: Geographical Mobility in the Past Year for Current Residence--Micropolitan Statistical Area Level in the United States, estimatedd total
+    # B07202_002: Geographical Mobility in the Past Year for Current Residence--Micropolitan Statistical Area Level in the United States, same house 1 year ago
+    # B07204_006: Geographical Mobility in the Past Year for Current Residence--State, County and Place Level in the United States, same city, different county as 1 year ago
+    # B07401_049: living in area 1 year ago, moved to dif county within same state
+    # B07401_050: living in area 1 year ago, moved to dif county within same state 1-4 years
+    # B25003_002: tenure, owner occupied
+    # B25003_003: tenure, renter occupied
+    # B25008_002: total population in occupied housing by tenure, owner occupied
+    # B25008_003: total population in occupied housing by tenure, renter occupied
+    # B99082_001: allocation of private vehicle occupance
+    # B992512_001: allocation of vehicles available
+    # B25044_001: tenure by vehicles available
+    # B25046_001: aggregate number of vehicles available
+    # B09002_001: own children under 18
+    # B11004_001: related children under 18
+    # B17010_002: Income in the past 12 months below poverty level
+    
+    census_vars <- c("B01001_001E","B15003_022E","B19013_001E","B02001_002E","B25058_001E",
+                     "B25071_001E","B07201_001E","B07201_002E","B07202_001E","B07202_002E",
+                     "B25003_002E","B25003_003E","B25008_002E","B25008_003E","B99082_001E",
+                     "B992512_001E","B25044_001E","B25046_001E","B09002_001E","B11004_001E","B17010_002E") # census variables of interest that are available
+    
+    medHHinc2013 <- 78986 # source: https://www.deptofnumbers.com/income/pennsylvania/philadelphia/
+    medHHinc2014 <- 76334
+    medHHinc2015 <- 75790
+    medHHinc2016 <- 74512
+    medHHinc2017 <- 74474
+    medHHinc2018 <- 71221
+    medHHinc2019 <- 70459
+    
+    tracts13 <- 
+      get_acs(geography = "block group", 
+              variables = census_vars, 
+              year = 2013, state = 42,
+              geometry = T, output = "wide") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(!matches("M$")) %>% 
+      rename(total_pop = B01001_001E,
+             bachelors25 = B15003_022E,
+             med_hh_inc = B19013_001E,
+             white_pop = B02001_002E,
+             med_rent = B25058_001E,
+             pct_rent_hhinc = B25071_001E,
+             mobility_tot_metro = B07201_001E,
+             samehouse1yr_metro = B07201_002E,
+             mobility_tot_micro = B07202_001E,
+             samehouse1yr_micro = B07202_002E,
+             owner_occ1 = B25003_002E,
+             renter_occ1 = B25003_003E,
+             owner_occ2 = B25008_002E,
+             renter_occ2 = B25008_003E,
+             private_vehicle_occ = B99082_001E,
+             vehicles_avail1 = B992512_001E,
+             vehicles_avail2 = B25044_001E,
+             vehicles_avail3 = B25046_001E,
+             below_poverty = B17010_002E,
+      ) %>%
+      mutate(children = B09002_001E + B11004_001E,
+             pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+             RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                  ifelse(total_pop != 0 , "Majority non-White", NA)),
+             pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
+             year = "2013") %>% 
+      dplyr::select(!matches("^B")) %>% 
+      st_centroid()
+    
+    tracts14 <- 
+      get_acs(geography = "block group", 
+              variables = census_vars, 
+              year = 2014, state = 42,
+              geometry = T, output = "wide") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(!matches("M$")) %>% 
+      rename(total_pop = B01001_001E,
+             bachelors25 = B15003_022E,
+             med_hh_inc = B19013_001E,
+             white_pop = B02001_002E,
+             med_rent = B25058_001E,
+             pct_rent_hhinc = B25071_001E,
+             mobility_tot_metro = B07201_001E,
+             samehouse1yr_metro = B07201_002E,
+             mobility_tot_micro = B07202_001E,
+             samehouse1yr_micro = B07202_002E,
+             owner_occ1 = B25003_002E,
+             renter_occ1 = B25003_003E,
+             owner_occ2 = B25008_002E,
+             renter_occ2 = B25008_003E,
+             private_vehicle_occ = B99082_001E,
+             vehicles_avail1 = B992512_001E,
+             vehicles_avail2 = B25044_001E,
+             vehicles_avail3 = B25046_001E,
+             below_poverty = B17010_002E,
+      ) %>%
+      mutate(children = B09002_001E + B11004_001E,
+             pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+             RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                  ifelse(total_pop != 0 , "Majority non-White", NA)),
+             pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
+             year = "2014") %>% 
+      dplyr::select(!matches("^B"))
+    
+    tracts15 <- 
+      get_acs(geography = "block group", 
+              variables = census_vars, 
+              year = 2015, state = 42,
+              geometry = T, output = "wide") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(!matches("M$")) %>% 
+      rename(total_pop = B01001_001E,
+             bachelors25 = B15003_022E,
+             med_hh_inc = B19013_001E,
+             white_pop = B02001_002E,
+             med_rent = B25058_001E,
+             pct_rent_hhinc = B25071_001E,
+             mobility_tot_metro = B07201_001E,
+             samehouse1yr_metro = B07201_002E,
+             mobility_tot_micro = B07202_001E,
+             samehouse1yr_micro = B07202_002E,
+             owner_occ1 = B25003_002E,
+             renter_occ1 = B25003_003E,
+             owner_occ2 = B25008_002E,
+             renter_occ2 = B25008_003E,
+             private_vehicle_occ = B99082_001E,
+             vehicles_avail1 = B992512_001E,
+             vehicles_avail2 = B25044_001E,
+             vehicles_avail3 = B25046_001E,
+             below_poverty = B17010_002E,
+      ) %>%
+      mutate(children = B09002_001E + B11004_001E,
+             pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+             RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                  ifelse(total_pop != 0 , "Majority non-White", NA)),
+             pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
+             year = "2015") %>% 
+      dplyr::select(!matches("^B"))
+    
+    tracts16 <- 
+      get_acs(geography = "block group", 
+              variables = census_vars, 
+              year = 2016, state = 42,
+              geometry = T, output = "wide") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(!matches("M$")) %>% 
+      rename(total_pop = B01001_001E,
+             bachelors25 = B15003_022E,
+             med_hh_inc = B19013_001E,
+             white_pop = B02001_002E,
+             med_rent = B25058_001E,
+             pct_rent_hhinc = B25071_001E,
+             mobility_tot_metro = B07201_001E,
+             samehouse1yr_metro = B07201_002E,
+             mobility_tot_micro = B07202_001E,
+             samehouse1yr_micro = B07202_002E,
+             owner_occ1 = B25003_002E,
+             renter_occ1 = B25003_003E,
+             owner_occ2 = B25008_002E,
+             renter_occ2 = B25008_003E,
+             private_vehicle_occ = B99082_001E,
+             vehicles_avail1 = B992512_001E,
+             vehicles_avail2 = B25044_001E,
+             vehicles_avail3 = B25046_001E,
+             below_poverty = B17010_002E,
+      ) %>%
+      mutate(children = B09002_001E + B11004_001E,
+             pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+             RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                  ifelse(total_pop != 0 , "Majority non-White", NA)),
+             pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
+             year = "2016") %>% 
+      dplyr::select(!matches("^B"))
+    
+    tracts17 <- 
+      get_acs(geography = "block group", 
+              variables = census_vars, 
+              year = 2017, state = 42,
+              geometry = T, output = "wide") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(!matches("M$")) %>% 
+      rename(total_pop = B01001_001E,
+             bachelors25 = B15003_022E,
+             med_hh_inc = B19013_001E,
+             white_pop = B02001_002E,
+             med_rent = B25058_001E,
+             pct_rent_hhinc = B25071_001E,
+             mobility_tot_metro = B07201_001E,
+             samehouse1yr_metro = B07201_002E,
+             mobility_tot_micro = B07202_001E,
+             samehouse1yr_micro = B07202_002E,
+             owner_occ1 = B25003_002E,
+             renter_occ1 = B25003_003E,
+             owner_occ2 = B25008_002E,
+             renter_occ2 = B25008_003E,
+             private_vehicle_occ = B99082_001E,
+             vehicles_avail1 = B992512_001E,
+             vehicles_avail2 = B25044_001E,
+             vehicles_avail3 = B25046_001E,
+             below_poverty = B17010_002E,
+      ) %>%
+      mutate(children = B09002_001E + B11004_001E,
+             pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+             RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                  ifelse(total_pop != 0 , "Majority non-White", NA)),
+             pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
+             year = "2017") %>% 
+      dplyr::select(!matches("^B"))
+    
+    tracts18 <- 
+      get_acs(geography = "block group", 
+              variables = census_vars, 
+              year = 2018, state = 42,
+              geometry = T, output = "wide") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(!matches("M$")) %>% 
+      rename(total_pop = B01001_001E,
+             bachelors25 = B15003_022E,
+             med_hh_inc = B19013_001E,
+             white_pop = B02001_002E,
+             med_rent = B25058_001E,
+             pct_rent_hhinc = B25071_001E,
+             mobility_tot_metro = B07201_001E,
+             samehouse1yr_metro = B07201_002E,
+             mobility_tot_micro = B07202_001E,
+             samehouse1yr_micro = B07202_002E,
+             owner_occ1 = B25003_002E,
+             renter_occ1 = B25003_003E,
+             owner_occ2 = B25008_002E,
+             renter_occ2 = B25008_003E,
+             private_vehicle_occ = B99082_001E,
+             vehicles_avail1 = B992512_001E,
+             vehicles_avail2 = B25044_001E,
+             vehicles_avail3 = B25046_001E,
+             below_poverty = B17010_002E,
+      ) %>%
+      mutate(children = B09002_001E + B11004_001E,
+             pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+             RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                  ifelse(total_pop != 0 , "Majority non-White", NA)),
+             pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
+             year = "2018") %>% 
+      dplyr::select(!matches("^B"))
+    
+    tracts19 <- 
+      get_acs(geography = "block group", 
+              variables = census_vars, 
+              year = 2019, state = 42,
+              geometry = T, output = "wide") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(!matches("M$")) %>% 
+      rename(total_pop = B01001_001E,
+             bachelors25 = B15003_022E,
+             med_hh_inc = B19013_001E,
+             white_pop = B02001_002E,
+             med_rent = B25058_001E,
+             pct_rent_hhinc = B25071_001E,
+             mobility_tot_metro = B07201_001E,
+             samehouse1yr_metro = B07201_002E,
+             mobility_tot_micro = B07202_001E,
+             samehouse1yr_micro = B07202_002E,
+             owner_occ1 = B25003_002E,
+             renter_occ1 = B25003_003E,
+             owner_occ2 = B25008_002E,
+             renter_occ2 = B25008_003E,
+             private_vehicle_occ = B99082_001E,
+             vehicles_avail1 = B992512_001E,
+             vehicles_avail2 = B25044_001E,
+             vehicles_avail3 = B25046_001E,
+             below_poverty = B17010_002E,
+      ) %>%
+      mutate(children = B09002_001E + B11004_001E,
+             pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+             RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                                  ifelse(total_pop != 0 , "Majority non-White", NA)),
+             pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
+             year = "2019") %>% 
+      dplyr::select(!matches("^B"))
+    
+  }
   
   # philly neighborhood data
   nhoods_path <- 'https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson'
@@ -228,78 +359,81 @@
     st_transform(crs = 2272) %>% 
     dplyr::select(OBJECTID,geometry)
   
-  # vacant lots/buildings
-  vacant_centroids <- st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
-    st_transform(crs = 2272) %>% 
-    st_centroid() %>%
-    mutate(Legend = "Vacants") %>%
-    dplyr::select(Legend)
-  
-  # parks & rec
-  ppr_sites <- st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% 
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Parks and Rec") %>%
-    dplyr::select(Legend)
-  
-  # transit stops
-  el <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
-    st_transform(crs = 2272)
-  bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
-    st_transform(crs = 2272)
-  
-  septaStops <-
-    rbind(
-      el %>%
-        mutate(Line = "El") %>%
-        dplyr::select(Station, Line),
-      bsl %>%
-        mutate(Line ="Broad_St") %>%
-        dplyr::select(Station, Line)) %>%
-    st_transform(crs = 2272) %>%
-    mutate(Legend = "Subway Stops") %>%
-    dplyr::select(Legend)
-  
-  # proximity to CBD using city_hall as proxy
-  city_hall <- bsl %>%
-    st_transform(crs = 2272) %>%
-    filter(Station=="City Hall") %>%
-    mutate(Legend = "City Hall") %>%
-    dplyr::select(Legend)
-  
-  # schools
-  schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Schools") %>% 
-    dplyr::select(Legend)
-  
-  # trees
-  trees <- st_read("https://opendata.arcgis.com/api/v3/datasets/30ef36e9e880468fa74e2d5b18da4cfb_0/downloads/data?format=geojson&spatialRefId=4326") %>%
-    st_transform(crs = 2272) %>% 
-    mutate(Legend = "Trees") %>% 
-    dplyr::select(Legend)
-  
-  # grocery stores (last updated 2019)
-  # this data is already in a count per block group format
-  groshies <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson") %>%
-    st_transform(crs = 2272) #%>%
-  # dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
-  # TOTAL_HPSS = Total number of high-produce supply stores within a half mile walking distance of the block group
-  
-  # bike info
-  # use as count or binary data (does this square in the fishnet have a street that is bike-accessible in it?)
-  bikes <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson") %>%
-    st_transform(crs = 2272) %>%
-    mutate(Legend = "Bike Network") #%>%
-  # dplyr::select(Legend)
-  
-  # historic districts
-  # use as binary (is the centroid of the fishnet square in one of these historic districts?)
-  historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
-    st_transform(crs = 2272) %>%
-    dplyr::select(name)
+  # variables that we are assuming are constant/don't change enough/we don't have data for
+  {
+    # vacant lots/buildings
+    vacant_centroids <- st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
+      st_transform(crs = 2272) %>% 
+      st_centroid() %>%
+      mutate(Legend = "Vacants") %>%
+      dplyr::select(Legend)
+    
+    # parks & rec
+    ppr_sites <- st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% 
+      st_transform(crs = 2272) %>% 
+      mutate(Legend = "Parks and Rec") %>%
+      dplyr::select(Legend)
+    
+    # transit stops
+    el <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
+      st_transform(crs = 2272)
+    bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
+      st_transform(crs = 2272)
+    
+    septaStops <-
+      rbind(
+        el %>%
+          mutate(Line = "El") %>%
+          dplyr::select(Station, Line),
+        bsl %>%
+          mutate(Line ="Broad_St") %>%
+          dplyr::select(Station, Line)) %>%
+      st_transform(crs = 2272) %>%
+      mutate(Legend = "Subway Stops") %>%
+      dplyr::select(Legend)
+    
+    # proximity to CBD using city_hall as proxy
+    city_hall <- bsl %>%
+      st_transform(crs = 2272) %>%
+      filter(Station=="City Hall") %>%
+      mutate(Legend = "City Hall") %>%
+      dplyr::select(Legend)
+    
+    # schools
+    schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
+      st_transform(crs = 2272) %>% 
+      mutate(Legend = "Schools") %>% 
+      dplyr::select(Legend)
+    
+    # trees
+    trees <- st_read("https://opendata.arcgis.com/api/v3/datasets/30ef36e9e880468fa74e2d5b18da4cfb_0/downloads/data?format=geojson&spatialRefId=4326") %>%
+      st_transform(crs = 2272) %>% 
+      mutate(Legend = "Trees") %>% 
+      dplyr::select(Legend)
+    
+    # grocery stores (last updated 2019)
+    # this data is already in a count per block group format
+    groshies <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson") %>%
+      st_transform(crs = 2272) #%>%
+    # dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
+    # TOTAL_HPSS = Total number of high-produce supply stores within a half mile walking distance of the block group
+    
+    # bike info
+    # use as count or binary data (does this square in the fishnet have a street that is bike-accessible in it?)
+    bikes <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson") %>%
+      st_transform(crs = 2272) %>%
+      mutate(Legend = "Bike Network") #%>%
+    # dplyr::select(Legend)
+    
+    # historic districts
+    # use as binary (is the centroid of the fishnet square in one of these historic districts?)
+    historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
+      st_transform(crs = 2272) %>%
+      dplyr::select(name)
+  }
   
   # 311 incident data
-  # still need to figure out how to work through this
+  # Ben will figure this part out
   {
     incidents <- st_read("https://phl.carto.com/api/v2/sql?filename=incidents_part1_part2&format=shp&skipfields=cartodb_id&q=SELECT%20*%20FROM%20incidents_part1_part2%20WHERE%20dispatch_date_time%20%3E=%20%272022-01-01%27%20AND%20dispatch_date_time%20%3C%20%272023-01-01%27") %>% 
       st_transform(crs = 2272)
@@ -356,8 +490,8 @@
     st_sf() %>%              
     mutate(uniqueID = 1:n()) 
   
-  permit_net <- 
-    dplyr::select(newcon_permits) %>% 
+  permit_net13 <- 
+    dplyr::select(newcon_permits %>% filter(year == "2013")) %>% 
     mutate(count_permits = 1) %>% 
     aggregate(., fishnet, sum) %>%
     mutate(count_permits = replace_na(count_permits, 0),
@@ -373,6 +507,35 @@
     mapTheme()
   
   permit_count_map
+}
+
+# Adding census variables to fishnet
+{
+  # vars to fishnet
+  {
+    
+  }
+  
+  # correlation of census variables to count permit
+  {
+    # making this moreso to see which would actually be good predictors
+    for_cormat <- all_net %>% 
+      st_drop_geometry() %>% 
+      dplyr::select(-c(uniqueID,cvID))
+    
+    ggcorrplot(
+      round(cor(for_cormat), 1), 
+      # method = "circle",
+      p.mat = cor_pmat(for_cormat),
+      colors = c("#4b2875", "white", "#9c1339"),
+      type="lower",
+      insig = "blank",
+      digits = 4,
+      lab = T, lab_size = 2) +  
+      labs(title = "Correlation",
+           caption = "Figure x.") 
+    
+  }
 }
 
 # Add other predictors to Fishnet
