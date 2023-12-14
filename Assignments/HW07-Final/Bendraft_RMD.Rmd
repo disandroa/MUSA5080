@@ -270,7 +270,7 @@ reports311 <- reports311 %>%
 ```{r create vars_net}
 # most vars can be added easily
 # special cases: groshies,bikes,historicDist
-vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees, farmerMarket, indegoStation, cityLandmarks) %>%
+vars_net <- rbind(vacant_centroids, ppr_sites, septaStops, city_hall, schools, trees, farmerMarket, indegoStation, cityLandmarks, reports311) %>%
   st_join(fishnet, join=st_within) %>%
   st_drop_geometry() %>%
   group_by(uniqueID, Legend) %>%
@@ -520,7 +520,7 @@ final_net %>% ggplot(aes(x = count_permits)) +
 
 ```{r models, results='hide'}
 # just risk factors
-reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants","indego.nn","farmers.nn","Landmarks")
+reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", "total_hpss", "total_restaurants", "Trees", "Vacants","indego.nn","farmers.nn","Landmarks", "X311")
 
 ## RUN REGRESSIONS
 reg.CV <- crossValidate(
