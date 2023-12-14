@@ -339,9 +339,12 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
 #
 # # only keep new construction permits
-newcon_permits <- dat_permit %>%
-  filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
-  st_transform(crs = 2272)
+ newcon_permits <- dat_permit %>%
+     filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
+     mutate(year = substr(permitissuedate, 1,4)) %>%
+     filter(year %in% c(2010:2019,2022)) %>%
+     st_transform(crs = 2272)
+  
 
 # TODO:
 # need to further limit this to permits between 2011-2021, to then predict 2022 data
