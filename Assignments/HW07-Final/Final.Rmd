@@ -17,6 +17,8 @@ Dear City Council Members,
 
 We are PHL Geo Inc., a Philadelphia based civil-service oriented coding organization using the power of geospatial analysis and city-owned data to provide informed insights to decision makers such as yourself. We are reaching out to introduce an exciting new tool which can be used in your districts immediately. The tool is called the GENTRISK and uses 10 years of development information to predict where development may happen in your community in the near future. The GENTRISK may be used in your district to manage the negative impacts of development, including trash dumping, street closures, and noise complaints. Getting ahead of development impacts can improve coordination and communication with residents in your district, improve the likelihood of successful permit applications, and enable smart zoning and growth in your city council region. 
 
+Development is a process determined by numerous factors and can have positive effects; however, development-induced gentrification, which is "a process a neighborhood change that includes economic change in a historically disinvested neighborhood - by means of real estate investment and new higher-income residents moving in - as well as demographic change - not only in terms of income level, but also in terms of changes in the education level or racial make-up of residents," can have negative effects [(Demsas, 2021)]("https://www.vox.com/22629826/gentrification-definition-housing-racism-segregation-cities"). As city council members looking to promote econoimc development while ensuring that residents have the protections that they need, the GENTRISK can provide tools that will help you see where development pressures are happening and engage in proactive outreach to those communities. Aligning city services such as increaseing access to Philadelhpia's Homestead Exemption or to the [PA Homeowner Assistance fund]("https://pahaf.org/"), can reduce these negative impacts. 
+
 The GENTRISK uses information from the past 10 years of development and combines that with external factors including the distance to schools, tree density, and distance to public transit, in order to understand what is driving development in Philadelphia. The GENTRISK then uses the relationships between those factors to predict where development may occur so you can get ahead of any potential negative impacts. These predictions form the basis of several tools available in GENTRISK, such as scenario planning. In the scenario planning framework, you may modify inputs to see how they will impact development going forward. For example, if the new Philly Tree Plan is likely to bring more tree canopy to your community, you can use the GENTRISK to model how much further development is likely to occur. 
 
 The following document provides a technical overview of how the GENTRISK functions, how to interpret its results, and how it can be incorporated into your city planning techniques. We look forward to seeing GENTRISK integrated into your city planning toolkit. 
@@ -31,10 +33,9 @@ PHL GEO Inc. Founders
 
 # Technical Details
 
-The GENTRISK tool uses the construction of new housing and commerical buildings as its core output, as construction provides both opportunities (in the form of economic development and increased tax base) and pressures (in the form of gentrification and noise/trash).
+The GENTRISK tool uses the construction of new housing and commercial buildings as its core output, as construction provides both opportunities (in the form of economic development and increased tax base) and pressures (in the form of gentrification and noise/trash) on residents and neighborhoods. Construction information is available from the [Department of Licenses and Inspection]("https://data.phila.gov/visualizations/li-building-permits") for a time period stretching over the last 10 years. While neighborhoods are constantly in a state of change, focusing in on a more specific time period can provide City Council with an accurate understanding of what is driving development in the city. THe time period from 2013 to 2018 provides a good baseline of understanding development drivers as it is prior to the impacts that the COVID-19 global pandemic had on development drivers, yet recent enough that certain key drivers - such as the turnover of permanent residents for renters - are still prevalent within Philadelphia. 
 
-
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, results='hide'}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(sf)
 library(tidyverse)
@@ -62,6 +63,27 @@ setwd("~/Documents/MUSA5080")
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
 ```
+
+# Data Exploration
+
+The following code pulls the construction permit information for the City and brings in a number of external variables. In the following section, the variables are loaded into the model, which include the following:
+
+- Vacant and abandoned housing
+- Philadelphia Parks and Recreation Locations
+- Septa Stops
+- Distance to the 3 closest schools
+- Median Household Income
+- Renter Occupied Housing
+- Owner-occupied
+- Private vehicle ownership
+- Dangerous Sidewalk complaints
+- Illegal dumping complaints
+- Parks and Recreation Safety and Maintenance complaints
+- Rubbish / Recyclable Material Collection complaints
+- Street Tree maintenance complaints
+- And the distance between those variables to eachother. 
+
+
 
 ```{r data download + wrangling, results='hide'}
 # philly permit data
@@ -348,16 +370,7 @@ reports311 <- reports311 %>%
   
 ```
 
-## Introduction
-
-### Background
-
-
-## Methods
-
-### The Fishnet
-
-
+Development patterns may be spread over space, such that it forms a smooth 'mosaic' across the city of Philadelphia. Alternatively, it is possible that several permits may be clustered together, either because they were all submitted as part of the same construction project (ie, submitting an electrical permit and roofing permit for the same property) or there were several units being worked in tandem. To better understand whether Philadelphia is experiecing a 'mosaic' of development or if development has been clustered into particular areas, a fishnet was established for grid cells of 500 meter by 500 meters across the city. The 500 meter scale (1/3rd mile) allows for a fluid understanding of development patterns at the block scale. Figure 2 
 
 #### Figure 2. Permit Count on Fishnet
 
@@ -966,7 +979,7 @@ In order to assess if the model generalizes to different neighborhood contexts, 
 [description of table 2]
 
 #### Table 2. Racial Context
-```{r table2/raw errors race}
+```{r table2/raw errors race2}
 RaceContext <- tracts21 %>% 
   dplyr::select(GEOID,total_pop,RaceContext,geometry) %>% 
   .[nhoods,]
