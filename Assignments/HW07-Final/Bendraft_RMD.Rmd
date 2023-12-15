@@ -36,6 +36,25 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 ```
 
+```{r}
+ 
+  # philly bounds
+  philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
+    st_transform(crs = 2272) %>% 
+    dplyr::select(OBJECTID,geometry)
+
+  cell_size <- 500 * 3.28084
+  
+  fishnet <- 
+    st_make_grid(philly,
+                 cellsize = cell_size,  
+                 square = TRUE,
+                 crs = 2272) %>% 
+    .[philly] %>%
+    st_sf() %>%              
+    mutate(uniqueID = 1:n()) 
+```
+
 ```{r census_information}
   {
     acs_variable_list.2019 <- load_variables(2019, #year
@@ -619,6 +638,17 @@ dumping_net19 <-
            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
   dplyr::select(-count_dump)
 
+
+dumping_net_allyrs <- dumping_net14 %>% 
+    st_drop_geometry() %>%
+    dplyr::select(uniqueID,cvID,count_dump14) %>% 
+    left_join(dumping_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dump15), by = "uniqueID") %>% 
+    left_join(dumping_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dump16), by = "uniqueID") %>% 
+    left_join(dumping_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dump17), by = "uniqueID") %>% 
+    left_join(dumping_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dump18), by = "uniqueID") %>% 
+    left_join(dumping_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dump19), by = "uniqueID") %>% 
+    left_join(dumping_net14 %>% dplyr::select(-c(cvID, count_dump14)), by = "uniqueID")
+
 # No variables included
 # constructionComplain2014 <- reports311_2014 %>%
 #   filter(grepl("Construction Complaints",type))%>%
@@ -762,6 +792,17 @@ buildComplain_net19 <-
   dplyr::select(-count_BuildComplain)
 
 
+buildComplain_net_allyrs <- buildComplain_net14 %>% 
+    st_drop_geometry() %>%
+    dplyr::select(uniqueID,cvID,count_BuildComplain14) %>% 
+    left_join(buildComplain_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_BuildComplain15), by = "uniqueID") %>% 
+    left_join(buildComplain_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_BuildComplain16), by = "uniqueID") %>% 
+    left_join(buildComplain_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_BuildComplain17), by = "uniqueID") %>% 
+    left_join(buildComplain_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_BuildComplain18), by = "uniqueID") %>% 
+    left_join(buildComplain_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_BuildComplain19), by = "uniqueID") %>% 
+    left_join(buildComplain_net14 %>% dplyr::select(-c(cvID, count_BuildComplain14)), by = "uniqueID")
+
+
 # sanitation2014 <- reports311_2014 %>%
 #   filter(grepl("Sanitation Violation",type))%>%
 #   dplyr::select(geometry,Legend)
@@ -882,6 +923,17 @@ trees_net19 <-
            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
   dplyr::select(-count_trees)
 
+trees_net_allyrs <- trees_net14 %>% 
+    st_drop_geometry() %>%
+    dplyr::select(uniqueID,cvID,count_trees14) %>% 
+    left_join(trees_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_trees15), by = "uniqueID") %>% 
+    left_join(trees_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_trees16), by = "uniqueID") %>% 
+    left_join(trees_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_trees17), by = "uniqueID") %>% 
+    left_join(trees_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_trees18), by = "uniqueID") %>% 
+    left_join(trees_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_trees19), by = "uniqueID") %>% 
+    left_join(trees_net14 %>% dplyr::select(-c(cvID,count_trees14)), by = "uniqueID")
+
+
 # dangsidewalk2014 <- reports311_2014 %>%
 #   filter(grepl("Dangerous Sidewalk",type))%>%
 #   dplyr::select(geometry,Legend)
@@ -955,6 +1007,15 @@ dangSidewalk_net19 <-
            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
   dplyr::select(-count_dangSidewalk)
 
+dangSidewalk_net_allyrs <- dangSidewalk_net14 %>% 
+    st_drop_geometry() %>%
+    dplyr::select(uniqueID,cvID,count_dangSidewalk14) %>% 
+    left_join(dangSidewalk_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dangSidewalk15), by = "uniqueID") %>% 
+    left_join(dangSidewalk_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dangSidewalk16), by = "uniqueID") %>% 
+    left_join(dangSidewalk_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dangSidewalk17), by = "uniqueID") %>% 
+    left_join(dangSidewalk_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dangSidewalk18), by = "uniqueID") %>% 
+    left_join(dangSidewalk_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_dangSidewalk19), by = "uniqueID") %>% 
+    left_join(dangSidewalk_net14 %>% dplyr::select(-c(cvID,count_dangSidewalk14)), by = "uniqueID")
 
 # homeless2014 <- reports311_2014 %>%
 #   filter(grepl("Homeless Encampment Request",type))%>%
@@ -1048,24 +1109,35 @@ PPRops_net19 <-
            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
   dplyr::select(-count_PPRops)
 
-vacant2014 <- reports311_2014 %>%
-  filter(grepl("Vacant House or Commercial",type))%>%
-  dplyr::select(geometry,Legend)
-vacant2015 <- reports311_2015 %>%
-  filter(grepl("Vacant House or Commercial",type))%>%
-  dplyr::select(geometry,Legend)
-vacant2016 <- reports311_2016 %>%
-  filter(grepl("Vacant House or Commercial",type))%>%
-  dplyr::select(geometry,Legend)
-vacant2017 <- reports311_2017 %>%
-  filter(grepl("Vacant House or Commercial",type))%>%
-  dplyr::select(geometry,Legend)
-vacant2018 <- reports311_2018 %>%
-  filter(grepl("Vacant House or Commercial",type))%>%
-  dplyr::select(geometry,Legend)
-vacant2019 <- reports311_2019 %>%
-  filter(grepl("Vacant House or Commercial",type))%>%
-  dplyr::select(geometry,Legend)
+PPRops_net_allyrs <- PPRops_net14 %>% 
+    st_drop_geometry() %>%
+    dplyr::select(uniqueID,cvID,count_PPRops14) %>% 
+    left_join(PPRops_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_PPRops15), by = "uniqueID") %>% 
+    left_join(PPRops_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_PPRops16), by = "uniqueID") %>% 
+    left_join(PPRops_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_PPRops17), by = "uniqueID") %>% 
+    left_join(PPRops_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_PPRops18), by = "uniqueID") %>% 
+    left_join(PPRops_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_PPRops19), by = "uniqueID") %>% 
+    left_join(PPRops_net14 %>% dplyr::select(-c(cvID,count_PPRops14)), by = "uniqueID")
+
+
+# vacant2014 <- reports311_2014 %>%
+#   filter(grepl("Vacant House or Commercial",type))%>%
+#   dplyr::select(geometry,Legend)
+# vacant2015 <- reports311_2015 %>%
+#   filter(grepl("Vacant House or Commercial",type))%>%
+#   dplyr::select(geometry,Legend)
+# vacant2016 <- reports311_2016 %>%
+#   filter(grepl("Vacant House or Commercial",type))%>%
+#   dplyr::select(geometry,Legend)
+# vacant2017 <- reports311_2017 %>%
+#   filter(grepl("Vacant House or Commercial",type))%>%
+#   dplyr::select(geometry,Legend)
+# vacant2018 <- reports311_2018 %>%
+#   filter(grepl("Vacant House or Commercial",type))%>%
+#   dplyr::select(geometry,Legend)
+# vacant2019 <- reports311_2019 %>%
+#   filter(grepl("Vacant House or Commercial",type))%>%
+#   dplyr::select(geometry,Legend)
 
 vacant_net14 <-
     dplyr::select(reports311 %>% filter((Year == "2014")&(grepl("Vacant House or Commercial",type)))) %>%
@@ -1120,6 +1192,19 @@ vacant_net19 <-
            uniqueID = as.numeric(rownames(.)),
            cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE))%>%
   dplyr::select(-count_vacant)
+
+
+
+vacant_net_allyrs <- vacant_net14 %>% 
+    st_drop_geometry() %>%
+    dplyr::select(uniqueID,cvID,count_vacant14) %>% 
+    left_join(vacant_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_vacant15), by = "uniqueID") %>% 
+    left_join(vacant_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_vacant16), by = "uniqueID") %>% 
+    left_join(vacant_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_vacant17), by = "uniqueID") %>% 
+    left_join(vacant_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_vacant18), by = "uniqueID") %>% 
+    left_join(vacant_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_vacant19), by = "uniqueID") %>% 
+    left_join(vacant_net14 %>% dplyr::select(-c(cvID,count_vacant14)), by = "uniqueID")
+
 
 
 trees_net_allyrs <- trees_net14 %>% 
