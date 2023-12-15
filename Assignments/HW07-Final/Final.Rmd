@@ -70,7 +70,7 @@ The model powering GENTRISK requires that all of the variables are gathered in t
 
 ## Census 
 
-The core starting point for this analysis is understanding 
+A key way to contextualize these changes is to look at the changes that are happening within city council ditsrcts throughout Philadelphia. AS is shown through the map below, there are 10 city council districts in Philadelphia where changes and development pressures will have to be accoutned for. 
 
 
 ```{r data download + wrangling, results='hide'}
@@ -551,6 +551,39 @@ permit_count_map19
 
 ```
 
+## Census Information 
+There are a number of different methods to account for neighborhood change and the impacts of development, all of which are powered. The GENTRISK takes into account several census features, which are described below (along with their reasoning) 
+- Total Population: as population increases in a census tract, so too will housing pressures which can in turn lead to new construction of housing.
+- Median HH Income: as median household income increases, it is likely that the cost of amenities in the area, including housing, groceries, etc. will increase as well. 
+- Median Rent: a clear marker of development pressure, rent prices will increase as a neighborhood becomes more expensive. It can also be used to ask 'does higher rent in an area indcue more development' as developers seek to capitalize on higher prices?
+- Rent (as %age of Income): a markeer of affordabiliyt, it is possible that by building in rent-burdened communities 
+- Total Metro Mobility
+- Staying in the same house for 1 year: a marker of how many long-term residents are around, this can be used to assess the relationships that development has with the transition out of longer term residents. 
+- Owner Occupied (total)
+- Renter Occupied (total)
+- Number of Vehicles available
+- Private Vehicle occupancy Rate
+- Number of Children
+- Percent White
+
+
+
+The model powering GENTRISK requires that all of the variables are gathered in the same format and then compared across time. To  facilitatate this process, the PHL GEO Inc. team used the following code to gather all of the variables and put them into a similar format. These variables can then provide an understnaidng of how neighborhoods are changing over time, followed by an investigation of what could be driving those changes; ie, if development is happening in a neighborhood, what are the factors that drive that development?
+
+- Vacant and abandoned housing
+- Philadelphia Parks and Recreation Locations
+- Septa Stops
+- Distance to the 3 closest schools
+- Median Household Income
+- Renter Occupied Housing
+- Owner-occupied
+- Private vehicle ownership
+- Dangerous Sidewalk complaints
+- Illegal dumping complaints
+- Parks and Recreation Safety and Maintenance complaints
+- Rubbish / Recyclable Material Collection complaints
+- Street Tree maintenance complaints
+- And the distance between those variables to eachother. 
 ```{r create census_net}
 # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (legend_name), aggregating with function (sum_or_mean)
 # for example, to make a fishnet summing all total_pop variables for 2013, one would define the variables as follows:
