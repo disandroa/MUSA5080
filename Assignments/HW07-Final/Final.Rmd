@@ -66,29 +66,18 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 # Data Exploration
 
-The following code pulls the construction permit information for the City and brings in a number of external variables. In the following section, the variables are loaded into the model, which include the following:
+The model powering GENTRISK requires that all of the variables are gathered in the same format and then compared across time. To  facilitatate this process, the PHL GEO Inc. team used the following code to gather all of the variables and put them into a similar format. These variables can then provide an understnaidng of how neighborhoods are changing over time, followed by an investigation of what could be driving those changes; ie, if development is happening in a neighborhood, what are the factors that drive that development?
 
-- Vacant and abandoned housing
-- Philadelphia Parks and Recreation Locations
-- Septa Stops
-- Distance to the 3 closest schools
-- Median Household Income
-- Renter Occupied Housing
-- Owner-occupied
-- Private vehicle ownership
-- Dangerous Sidewalk complaints
-- Illegal dumping complaints
-- Parks and Recreation Safety and Maintenance complaints
-- Rubbish / Recyclable Material Collection complaints
-- Street Tree maintenance complaints
-- And the distance between those variables to eachother. 
+## Census 
 
+The core starting point for this analysis is understanding 
 
 
 ```{r data download + wrangling, results='hide'}
 # philly permit data
 dat_permit <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+permits&filename=permits&format=geojson&skipfields=cartodb_id")
 
+city_counil <- st_read("https://opendata.arcgis.com/api/v3/datasets/1ba5a5d68f4a4c75806e78b1d9245924_0/downloads/data?format=geojson&spatialRefId=4326&where=1%3D1")
 # only keep new construction permits
 newcon_permits <- dat_permit %>%
   filter(grepl("NEW CON|NEWCON",typeofwork)) %>%
@@ -366,6 +355,16 @@ reports311 <- reports311 %>%
     Legend = "311") %>% 
   dplyr::select(Legend, type, geometry, Year)
   
+ggplot()+
+  geom_sf(data=city_counil, aes(fill=city_counil$DISTRICT))+
+  # geom_sf(data=(get_acs(geography = "block group", 
+  #         variables = census_vars, 
+  #         year = 2019, state = 42, county=101,
+  #         geometry = T, output = "wide") %>%
+  # st_transform(crs = 2272))
+  #           ,aes())+
+  labs(fill = "City Council District",
+    title = "City Council Districts Within Philadelphia")
   
 ```
 
@@ -374,7 +373,9 @@ Development patterns may be spread over space, such that it forms a smooth 'mosa
 
 Figure 1 below shows the number of permits granted for each fishnet square in 2014, followed by Figure 2 showing the number of permits for each fishnet square in 2015, and so on until Figure 6 demonstrating the number of permits granted for each fishnet square in 2019. As is visible through the maps, trends and patterns of development shift across the city, such that in 2014 development centered around the Center City Neighborhood, while moving towards 2019 - when record number of permits were granted for the time period in focus - development was centered in Center City as well as North Philadelphia. 
 
-#### Figure 2. Permit Count on Fishnet
+It is worthwhile to note that while there are a number of areas with extensive permit counts and development pressures, so too are there a significant number of fishnet cells in the city that did not experience much  - if any - development. These low-no development areas, from the perspective of new construction, could have an outside influence on the model with impacts on its accuracy in areas experiecing higher levels of development. This was factored into the model through the use of a Poisson distribution, described in greater detail below. 
+
+## Figures 1 - 6. Permit Count on Fishnet by Year
 
 ```{r fig2/fishnet outcome}
 # our CRS is in feet, but want to make fishnet a 500m x 500m
@@ -773,7 +774,21 @@ We also added some features that explain the spatial process of permit issuance 
 
 ### Models
 
+<<<<<<< Updated upstream
 Since the outcome we are interested in is a count of permits issued in different regions of Philadelphia, we use a Poisson regression model. We created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process.
+=======
+Since the outcome we are interested in is a count or sum of vandalism incidents, I use a Poisson regression model to estimate the outcome. I created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process (I ultimately only kept the model with both risk factors and spatial process).
+```{r poisson}
+{
+    final_net %>% ggplot(aes(x = count_permits)) +
+      geom_histogram(bins = 66) +
+      theme_minimal() +
+      labs(title = "Permit Distribution",
+           x = "Count of New Construction Permits", y = "Count",
+           caption = "Figure x.")
+  }
+```
+>>>>>>> Stashed changes
 
 ### Validation
 
