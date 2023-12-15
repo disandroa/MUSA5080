@@ -805,17 +805,12 @@
     left_join(dplyr::select(all_net19, geometry, uniqueID), by = "uniqueID") %>%
     st_sf()
   
-  subset_net <- all_net %>%
-    st_centroid() %>%
-    st_join(dplyr::select(nhoods, mapname)) %>%
-    st_drop_geometry() %>%
-    left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
-    st_sf() %>%
-    na.omit()
+  # only keep years for count_permit columns
+  names(allnet19_formodel) <- c(str_replace_all(var_for_model, c(" 19" = ""," 2019" = "","19." = ".")), "geometry")
   
   # all predictors
   {
-    vars_net.long <- gather(all_net19 %>% dplyr::select(-count_permits),
+    vars_net.long <- gather(allnet19_formodel %>% dplyr::select(-count_permits19),
                             variable, value, -geometry, -uniqueID, -cvID, -mapname)
     
     vars <- unique(vars_net.long$variable)
@@ -829,22 +824,26 @@
         mapTheme(title_size = 14) + theme(legend.position="bottom")
     }
     
-    do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
+    # too many variables, have to split into three plots
+    do.call(grid.arrange,c(varList[1:10], ncol = 4, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
+    do.call(grid.arrange,c(varList[11:20], ncol = 4, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
+    do.call(grid.arrange,c(varList[21:30], ncol = 4, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
+    
   }
   
   # spatial features
   {
-    final_net.nb <- poly2nb(as_Spatial(subset_net), queen=TRUE)
+    final_net.nb <- poly2nb(as_Spatial(allnet19_formodel), queen=TRUE)
     final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE) # turn neighborhood weights into list of weights
     
-    local_morans <- localmoran(subset_net$count_permits, final_net.weights, zero.policy=TRUE) %>%
+    local_morans <- localmoran(allnet19_formodel$count_permits19, final_net.weights, zero.policy=TRUE) %>%
       as.data.frame() # Ii moran's I at ith cell, Ei expected/mean from neighbors
     
     # join local Moran's I results to fishnet
     final_net.localMorans <- 
-      cbind(local_morans, as.data.frame(subset_net)) %>% 
+      cbind(local_morans, as.data.frame(allnet19_formodel)) %>% 
       st_sf() %>%
-      dplyr::select(`Permit Count` = count_permits, 
+      dplyr::select(`Permit Count` = count_permits19, 
                     `Local Morans I` = Ii, 
                     `P Value` = `Pr(z != E(Ii))`) %>%
       mutate(`Significant Hotspots` = ifelse(`P Value` <= 0.001, 1, 0)) %>%
@@ -867,14 +866,14 @@
                            bottom = "Figure x."))
     
     final_net <-
-      subset_net %>% 
+      allnet19_formodel %>% 
       mutate(permitct.isSig = 
-               ifelse(localmoran(subset_net$count_permits, 
+               ifelse(localmoran(allnet19_formodel$count_permits19, 
                                  final_net.weights)[,5] <= 0.001, 1, 0)) %>%
       mutate(permitct.isSig.dist = 
-               nn_function(st_coordinates(st_centroid(subset_net)),
+               nn_function(st_coordinates(st_centroid(allnet19_formodel)),
                            st_coordinates(st_centroid(
-                             filter(subset_net, permitct.isSig == 1))), 1))
+                             filter(allnet19_formodel, permitct.isSig == 1))), 1))
     
   }
   
@@ -883,14 +882,14 @@
     correlation.long <-
       st_drop_geometry(final_net) %>%
       dplyr::select(-uniqueID, -cvID, -mapname) %>%
-      gather(variable, value, -count_permits)
+      gather(variable, value, -count_permits19)
     
     correlation.cor <-
       correlation.long %>%
       group_by(variable) %>%
-      summarize(correlation = cor(value, count_permits, use = "complete.obs"))
+      summarize(correlation = cor(value, count_permits19, use = "complete.obs"))
     
-    ggplot(correlation.long, aes(value, count_permits)) +
+    ggplot(correlation.long, aes(value, count_permits19)) +
       geom_point(size = 0.1) +
       geom_text(data = correlation.cor, aes(label = paste("r =", round(correlation, 2))),
                 x=-Inf, y=Inf, vjust = 1.5, hjust = -.1) +
@@ -903,7 +902,7 @@
   
   # Poisson regression
   {
-    final_net %>% ggplot(aes(x = count_permits)) +
+    final_net %>% ggplot(aes(x = count_permits19)) +
       geom_histogram(bins = 66) +
       theme_minimal() +
       labs(title = "Permit Distribution",
@@ -924,9 +923,9 @@
     reg.CV <- crossValidate(
       dataset = final_net,
       id = "cvID",
-      dependentVariable = "count_permits",
+      dependentVariable = "count_permits19",
       indVariables = reg.vars) %>%
-      mutate(error = count_permits - Prediction)
+      mutate(error = count_permits19 - Prediction)
     
     # MAE
     reg.MAE <- mean(abs(reg.CV$error)) # 45.08406
@@ -940,10 +939,10 @@
     reg.spatialCV <- crossValidate(
       dataset = final_net,
       id = "cvID",                           
-      dependentVariable = "count_permits",
+      dependentVariable = "count_permits19",
       indVariables = reg.sp.vars) %>% 
-      dplyr::select(cvID, count_permits, Prediction, geometry) %>% 
-      mutate(error = count_permits - Prediction)
+      dplyr::select(cvID, count_permits19, Prediction, geometry) %>% 
+      mutate(error = count_permits19 - Prediction)
     
     # MAE
     reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # 36.35607
@@ -953,9 +952,9 @@
     reg.logoCV <- crossValidate(
       dataset = final_net,
       id = "mapname",
-      dependentVariable = "count_permits",
+      dependentVariable = "count_permits19",
       indVariables = reg.vars) %>%
-      mutate(error = count_permits - Prediction)
+      mutate(error = count_permits19 - Prediction)
     
     # MAE
     reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 46.49673
@@ -965,10 +964,10 @@
     reg.logo.spatialCV <- crossValidate(
       dataset = final_net,
       id = "mapname",                           
-      dependentVariable = "count_permits",
+      dependentVariable = "count_permits19",
       indVariables = reg.sp.vars) %>% 
-      dplyr::select(cvID = mapname, count_permits, Prediction, geometry) %>% 
-      mutate(error = count_permits - Prediction)
+      dplyr::select(cvID = mapname, count_permits19, Prediction, geometry) %>% 
+      mutate(error = count_permits19 - Prediction)
     
     # MAE
     reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 37.12363
@@ -980,17 +979,17 @@
   {
     reg.summary <- rbind(
       mutate(reg.spatialCV,
-             Error = Prediction - count_permits,
+             Error = Prediction - count_permits19,
              Regression = "Random k-fold CV"),
       mutate(reg.logo.spatialCV, 
-             Error = Prediction - count_permits,
+             Error = Prediction - count_permits19,
              Regression = "Spatial LOGO-CV")) %>%
       st_sf() 
     
     error_by_reg_and_fold <- 
       reg.summary %>%
       group_by(Regression, cvID) %>% 
-      summarize(Mean_Error = mean(Prediction - count_permits, na.rm = T),
+      summarize(Mean_Error = mean(Prediction - count_permits19, na.rm = T),
                 MAE        = mean(abs(Mean_Error), na.rm = T),
                 SD_MAE     = mean(abs(Mean_Error), na.rm = T)) %>%
       ungroup()
