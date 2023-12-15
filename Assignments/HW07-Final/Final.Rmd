@@ -543,9 +543,9 @@ reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 37.12363
 
 ```
 
-### Model Selection 
+### Feature Selection 
 
-As mentioned in the Methods section, I kept both risk factors and spatial process as independent variables in my model as this model had lower values of error across all cross validation methods.
+All census variables were pulled at the block group level, which is a smaller scale than our fishnet. There is no perfect way to join block-group-level census data to our fishnet, so our approach was to take the centroid of the block groups and aggregated the variables (by either taking the sum or average) of the block groups whose centroids landed in a fishnet grid cell (idk how to phrase this well so feel free to rephrase!). As a result, some fishnet cells that cover residential areas of Philadelphia may have a value of 0 for variables like "Total Population" since no block group centroid was within the bounds of that cell. 
 
 ### Cross Validation
 
