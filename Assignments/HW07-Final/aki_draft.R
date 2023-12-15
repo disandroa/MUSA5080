@@ -169,7 +169,8 @@
                                   ifelse(total_pop != 0 , "Majority non-White", NA)),
              pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
              year = "2014") %>% 
-      dplyr::select(!matches("^B"))
+      dplyr::select(!matches("^B")) %>% 
+      st_centroid()
     
     tracts15 <- 
       get_acs(geography = "block group", 
@@ -204,7 +205,8 @@
                                   ifelse(total_pop != 0 , "Majority non-White", NA)),
              pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
              year = "2015") %>% 
-      dplyr::select(!matches("^B"))
+      dplyr::select(!matches("^B")) %>% 
+      st_centroid()
     
     tracts16 <- 
       get_acs(geography = "block group", 
@@ -239,7 +241,8 @@
                                   ifelse(total_pop != 0 , "Majority non-White", NA)),
              pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
              year = "2016") %>% 
-      dplyr::select(!matches("^B"))
+      dplyr::select(!matches("^B")) %>% 
+      st_centroid()
     
     tracts17 <- 
       get_acs(geography = "block group", 
@@ -274,7 +277,8 @@
                                   ifelse(total_pop != 0 , "Majority non-White", NA)),
              pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
              year = "2017") %>% 
-      dplyr::select(!matches("^B"))
+      dplyr::select(!matches("^B")) %>% 
+      st_centroid()
     
     tracts18 <- 
       get_acs(geography = "block group", 
@@ -309,7 +313,8 @@
                                   ifelse(total_pop != 0 , "Majority non-White", NA)),
              pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
              year = "2018") %>% 
-      dplyr::select(!matches("^B"))
+      dplyr::select(!matches("^B")) %>% 
+      st_centroid()
     
     tracts19 <- 
       get_acs(geography = "block group", 
@@ -344,7 +349,8 @@
                                   ifelse(total_pop != 0 , "Majority non-White", NA)),
              pct_children = ifelse(total_pop > 0 & !is.na(children), children / total_pop,0), # percent of households with children present
              year = "2019") %>% 
-      dplyr::select(!matches("^B"))
+      dplyr::select(!matches("^B")) %>% 
+      st_centroid()
     
   }
   
@@ -359,119 +365,66 @@
     st_transform(crs = 2272) %>% 
     dplyr::select(OBJECTID,geometry)
   
-  # variables that we are assuming are constant/don't change enough/we don't have data for
-  {
-    # vacant lots/buildings
-    vacant_centroids <- st_read("https://opendata.arcgis.com/datasets/b990222a527849229b4192feb4c42dc0_0.geojson") %>% 
-      st_transform(crs = 2272) %>% 
-      st_centroid() %>%
-      mutate(Legend = "Vacants") %>%
-      dplyr::select(Legend)
-    
-    # parks & rec
-    ppr_sites <- st_read("https://opendata.arcgis.com/api/v3/datasets/9eb26a787a6e448ba426eea7f9f0d93a_0/downloads/data?format=geojson&spatialRefId=4326") %>% 
-      st_transform(crs = 2272) %>% 
-      mutate(Legend = "Parks and Rec") %>%
-      dplyr::select(Legend)
-    
-    # transit stops
-    el <- st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
-      st_transform(crs = 2272)
-    bsl <- st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>% 
-      st_transform(crs = 2272)
-    
-    septaStops <-
-      rbind(
-        el %>%
-          mutate(Line = "El") %>%
-          dplyr::select(Station, Line),
-        bsl %>%
-          mutate(Line ="Broad_St") %>%
-          dplyr::select(Station, Line)) %>%
-      st_transform(crs = 2272) %>%
-      mutate(Legend = "Subway Stops") %>%
-      dplyr::select(Legend)
-    
-    # proximity to CBD using city_hall as proxy
-    city_hall <- bsl %>%
-      st_transform(crs = 2272) %>%
-      filter(Station=="City Hall") %>%
-      mutate(Legend = "City Hall") %>%
-      dplyr::select(Legend)
-    
-    # schools
-    schools <- st_read('https://opendata.arcgis.com/datasets/d46a7e59e2c246c891fbee778759717e_0.geojson') %>% 
-      st_transform(crs = 2272) %>% 
-      mutate(Legend = "Schools") %>% 
-      dplyr::select(Legend)
-    
-    # trees
-    trees <- st_read("https://opendata.arcgis.com/api/v3/datasets/30ef36e9e880468fa74e2d5b18da4cfb_0/downloads/data?format=geojson&spatialRefId=4326") %>%
-      st_transform(crs = 2272) %>% 
-      mutate(Legend = "Trees") %>% 
-      dplyr::select(Legend)
-    
-    # grocery stores (last updated 2019)
-    # this data is already in a count per block group format
-    groshies <- st_read("https://opendata.arcgis.com/datasets/53b8a1c653a74c92b2de23a5d7bf04a0_0.geojson") %>%
-      st_transform(crs = 2272) #%>%
-    # dplyr::select(TOTAL_HPSS,TOTAL_RESTAURANTS)
-    # TOTAL_HPSS = Total number of high-produce supply stores within a half mile walking distance of the block group
-    
-    # bike info
-    # use as count or binary data (does this square in the fishnet have a street that is bike-accessible in it?)
-    bikes <- st_read("https://opendata.arcgis.com/datasets/b5f660b9f0f44ced915995b6d49f6385_0.geojson") %>%
-      st_transform(crs = 2272) %>%
-      mutate(Legend = "Bike Network") #%>%
-    # dplyr::select(Legend)
-    
-    # historic districts
-    # use as binary (is the centroid of the fishnet square in one of these historic districts?)
-    historicDist <- st_read("https://phl.carto.com/api/v2/sql?q=SELECT+*+FROM+historicdistricts_local&filename=historicdistricts_local&format=geojson&skipfields=cartodb_id") %>%
-      st_transform(crs = 2272) %>%
-      dplyr::select(name)
-  }
+  # limit permit dat to philly border
+  newcon_permits <- newcon_permits %>% 
+    .[philly,]
   
   # 311 incident data
   # Ben will figure this part out
   {
-    incidents <- st_read("https://phl.carto.com/api/v2/sql?filename=incidents_part1_part2&format=shp&skipfields=cartodb_id&q=SELECT%20*%20FROM%20incidents_part1_part2%20WHERE%20dispatch_date_time%20%3E=%20%272022-01-01%27%20AND%20dispatch_date_time%20%3C%20%272023-01-01%27") %>% 
-      st_transform(crs = 2272)
+    carto_url = "https://phl.carto.com/api/v2/sql"
     
-    incidents21 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_21/incidents_part1_part2.shp") %>% 
-      st_transform('ESRI:102728') %>% rename(Legend = text_gener)
+    # Crime incidents
+    table_name_311 = "public_cases_fc"
     
-    # filter to only keep vandalism incidents
-    vandalism <- incidents21 %>% filter(Legend == "Vandalism/Criminal Mischief") # 13670 rows
-    
-    # only keep what's inside the philly boundary
-    vandalism <- vandalism[philly,] # 13578 rows
-    
-    # same for other risk factors: public drunkenness, arson, disorderly conduct, thefts, theft from vehicle, dui
-    # also make feature for nearest neighbor count of these incidents
-    public_drunk <- incidents21 %>% filter(Legend == "Public Drunkenness") %>% 
-      dplyr::select(Legend,geometry)
-    public_drunk <- public_drunk[philly,]
-    
-    arson <- incidents21 %>% filter(Legend == "Arson") %>% 
-      dplyr::select(Legend,geometry)
-    arson <- arson[philly,]
-    
-    disorderly <- incidents21 %>% filter(Legend == "Disorderly Conduct") %>% 
-      dplyr::select(Legend,geometry)
-    disorderly <- disorderly[philly,]
-    
-    thefts <- incidents21 %>% filter(Legend == "Thefts") %>% 
-      dplyr::select(Legend,geometry)
-    thefts <- thefts[philly,]
-    
-    theft_from_veh <- incidents21 %>% filter(Legend == "Theft from Vehicle") %>% 
-      dplyr::select(Legend,geometry)
-    theft_from_veh <- theft_from_veh[philly,]
-    
-    dui <- incidents21 %>% filter(Legend == "DRIVING UNDER THE INFLUENCE") %>% 
-      dplyr::select(Legend,geometry)
-    dui <- dui[philly,]
+    # query
+    # Rubbish/Recycling Material Collection
+    {
+      where_matCollection = "closed_datetime >= '2010-01-01' AND closed_datetime < '2020-01-01' AND service_name = 'Rubbish/Recyclable Material Collection'"
+      
+      query_matCollection = paste("SELECT *",
+                                  "FROM", table_name_311,
+                                  "WHERE", where_matCollection)
+      
+      reports_matCollection = rphl::get_carto(query_matCollection, format = "csv", base_url = carto_url, stringsAsFactors = F) %>%
+        mutate(Year = year(format.Date(closed_datetime))) %>%
+        filter(!is.na(lon) & !is.na(lat)) %>%
+        st_as_sf(coords = c("lon","lat"), crs = 2272) %>% 
+        mutate(Legend = "Rubbish/Recycle Material Collection") %>% 
+        dplyr::select(Legend, geometry, Year)
+      
+      reports_matCollection_2013 <- reports_matCollection %>%
+        filter(Year == 2013) %>%
+        dplyr::select(geometry,Legend)
+      
+      reports_matCollection_2014 <- reports_matCollection %>%
+        filter(Year == "2014")%>%
+        dplyr::select(geometry,Legend)
+      
+      reports_matCollection_2015 <- reports_matCollection %>%
+        filter(Year == "2015")%>%
+        dplyr::select(geometry,Legend)
+      
+      reports_matCollection_2016 <- reports_matCollection %>%
+        filter(Year == "2016")%>%
+        dplyr::select(geometry,Legend)
+      
+      reports_matCollection_2017 <- reports_matCollection %>%
+        filter(Year == "2017")%>%
+        dplyr::select(geometry,Legend)
+      
+      reports_matCollection_2018 <- reports_matCollection %>%
+        filter(Year == "2018")%>%
+        dplyr::select(geometry,Legend)
+      
+      reports_matCollection_2019 <- reports_matCollection %>%
+        filter(Year == "2019")%>%
+        dplyr::select(geometry,Legend)
+      
+      reports_matCollection_2013_to_2018 <- reports_matCollection %>%
+        filter(Year >= "2013" & Year <= "2018")%>%
+        dplyr::select(geometry, Legend)
+    }
   }
   
 }
@@ -507,7 +460,9 @@
       dplyr::select(newcon_permits %>% filter(year == "2014")) %>% 
       mutate(count_permits = 1) %>% 
       aggregate(., fishnet, sum) %>%
-      mutate(count_permits14 = replace_na(count_permits, 0)) %>% 
+      mutate(count_permits14 = replace_na(count_permits, 0),
+             uniqueID = as.numeric(rownames(.)),
+             cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE)) %>% 
       dplyr::select(-count_permits)
   }
   
@@ -517,7 +472,9 @@
       dplyr::select(newcon_permits %>% filter(year == "2015")) %>% 
       mutate(count_permits = 1) %>% 
       aggregate(., fishnet, sum) %>%
-      mutate(count_permits15 = replace_na(count_permits, 0)) %>% 
+      mutate(count_permits15 = replace_na(count_permits, 0),
+             uniqueID = as.numeric(rownames(.)),
+             cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE)) %>% 
       dplyr::select(-count_permits)
   }
   
@@ -527,7 +484,9 @@
       dplyr::select(newcon_permits %>% filter(year == "2016")) %>% 
       mutate(count_permits = 1) %>% 
       aggregate(., fishnet, sum) %>%
-      mutate(count_permits16 = replace_na(count_permits, 0)) %>% 
+      mutate(count_permits16 = replace_na(count_permits, 0),
+             uniqueID = as.numeric(rownames(.)),
+             cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE)) %>% 
       dplyr::select(-count_permits)
   }
   
@@ -537,7 +496,9 @@
       dplyr::select(newcon_permits %>% filter(year == "2017")) %>% 
       mutate(count_permits = 1) %>% 
       aggregate(., fishnet, sum) %>%
-      mutate(count_permits17 = replace_na(count_permits, 0)) %>% 
+      mutate(count_permits17 = replace_na(count_permits, 0),
+             uniqueID = as.numeric(rownames(.)),
+             cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE)) %>% 
       dplyr::select(-count_permits)
   }
   
@@ -547,7 +508,9 @@
       dplyr::select(newcon_permits %>% filter(year == "2018")) %>% 
       mutate(count_permits = 1) %>% 
       aggregate(., fishnet, sum) %>%
-      mutate(count_permits18 = replace_na(count_permits, 0)) %>% 
+      mutate(count_permits18 = replace_na(count_permits, 0),
+             uniqueID = as.numeric(rownames(.)),
+             cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE)) %>% 
       dplyr::select(-count_permits)
   }
   
@@ -557,19 +520,23 @@
       dplyr::select(newcon_permits %>% filter(year == "2019")) %>% 
       mutate(count_permits = 1) %>% 
       aggregate(., fishnet, sum) %>%
-      mutate(count_permits19 = replace_na(count_permits, 0)) %>% 
+      mutate(count_permits19 = replace_na(count_permits, 0),
+             uniqueID = as.numeric(rownames(.)),
+             cvID = sample(round(nrow(fishnet) / 16), size=nrow(fishnet), replace = TRUE)) %>% 
       dplyr::select(-count_permits)
   }
   
   # combine permit counts from all years
   permit_net_allyrs <- permit_net13 %>% 
-    dplyr::select(-count_permits) %>% 
-    st_join(permit_net14) %>% 
-    st_join(permit_net15) %>% 
-    st_join(permit_net16) %>% 
-    st_join(permit_net17) %>% 
-    st_join(permit_net18) %>% 
-    st_join(permit_net19) 
+    st_drop_geometry() %>%
+    dplyr::select(uniqueID,cvID,count_permits13) %>% 
+    left_join(permit_net14 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits14), by = "uniqueID") %>% 
+    left_join(permit_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits15), by = "uniqueID") %>% 
+    left_join(permit_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits16), by = "uniqueID") %>% 
+    left_join(permit_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits17), by = "uniqueID") %>% 
+    left_join(permit_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits18), by = "uniqueID") %>% 
+    left_join(permit_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits19), by = "uniqueID") %>% 
+    left_join(permit_net13 %>% dplyr::select(-c(cvID,count_permits13,count_permits)), by = "uniqueID")
   
   permit_net <- 
     dplyr::select(newcon_permits) %>% 
@@ -592,8 +559,84 @@
 
 # Adding census variables to fishnet
 {
-  # vars to fishnet
+  # adding vars
   {
+    # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (legend_name), aggregating with function (sum_or_mean)
+    # for example, to make a fishnet summing all total_pop variables for 2013, one would define the variables as follows:
+    # dat_tract <- tracts13; var_name <- "total_pop"; legend_name <- "Total Population"; sum_or_mean <- sum
+    makenet <- function(dat_tract, var_name, legend_name, sum_or_mean){
+      
+      net_tract <- dat_tract %>% 
+        .[philly,] %>% 
+        dplyr::select(matches(var_name)) %>% 
+        mutate(Legend = legend_name) %>% 
+        st_join(fishnet, join=st_within) %>%
+        st_drop_geometry() %>%
+        group_by(uniqueID, Legend) %>%
+        summarize(count = sum_or_mean(get(var_name), na.rm = T)) %>%
+        left_join(fishnet, ., by = "uniqueID") %>%  # add geometry back in
+        spread(Legend, count, fill=0) %>%  # fill in ones where fishnet was missing, count was NA with 0
+        dplyr::select(-`<NA>`) %>%
+        ungroup()
+      
+      return(net_tract)
+    }
+    
+    net_total_pop13 <- makenet(tracts13,"total_pop","Total Population",sum)
+    net_total_pop13 <- makenet(tracts13,"total_pop","Total Population",sum)
+    
+    var_names <- names(tracts13)[c(3:4,6:21)]
+    legend_names <- c("Total Population", "Median HH Income", "Median Rent", "Rent (as %age of Income)", "mobility_tot_metro",
+                      "samehouse1yr_metro","mobility_tot_micro","samehouse1yr_micro","owner_occ1","renter_occ1","owner_occ2",
+                      "renter_occ2","vehicles_avail2","vehicles_avail3","private_vehicle_occ","vehicles_avail1","children","pct_white")
+    
+    dat_tracts <- paste0("tracts",13:19)
+    
+    # for loop to create fish nets for all ACS variables for all years
+    for (i in 1:length(dat_tracts)) {
+      dat_tract <- get(dat_tracts[i])
+      
+      for (j in 1:length(var_names)){
+        # select year, variable, and legend name
+        yr <- i+12
+        var_name <- var_names[j]
+        legend_name <- paste(legend_names[j],yr)
+        
+        if (j %in% c(2:4,18)){
+          sum_or_mean <- mean
+        } else {
+          sum_or_mean <- sum
+        }
+        
+        # run function to make fishnet
+        net_tract <- makenet(dat_tract,var_name,legend_name,sum_or_mean)
+        
+        # save as individual fishnet
+        net_tract_name <- paste0("net_",var_name,yr)
+        assign(net_tract_name, net_tract)
+        
+        # save all variables into one big net
+        if (i == 1 & j == 1) {
+          census_net <- net_tract %>% 
+            st_drop_geometry()
+        } else {
+          net_tract_tojoin <- net_tract %>% 
+            st_drop_geometry() %>% 
+            dplyr::select(1:2)
+          census_net <- left_join(census_net, net_tract_tojoin, by = "uniqueID")
+        }
+      }
+    }
+    permit_net_allyrs <- permit_net13 %>% 
+      st_drop_geometry() %>%
+      dplyr::select(uniqueID,cvID,count_permits13) %>% 
+      left_join(permit_net14 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits14), by = "uniqueID") %>% 
+      left_join(permit_net15 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits15), by = "uniqueID") %>% 
+      left_join(permit_net16 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits16), by = "uniqueID") %>% 
+      left_join(permit_net17 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits17), by = "uniqueID") %>% 
+      left_join(permit_net18 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits18), by = "uniqueID") %>% 
+      left_join(permit_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits19), by = "uniqueID") %>% 
+      left_join(permit_net13 %>% dplyr::select(-c(cvID,count_permits13,count_permits)), by = "uniqueID")
     
   }
   
