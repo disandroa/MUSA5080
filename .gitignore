@@ -10,3 +10,4 @@ newcon_permits.geojson
 results_for_ppt/
 .DS_Store
 *.pdf
+*.geojson
