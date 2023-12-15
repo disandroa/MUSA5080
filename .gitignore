@@ -11,3 +11,5 @@ results_for_ppt/
 .DS_Store
 *.pdf
 *.geojson
+data/
+Final_files/

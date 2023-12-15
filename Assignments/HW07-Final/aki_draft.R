@@ -628,7 +628,7 @@
     dplyr::select(matches("uniqueID|cvID|geometry|18|count_permits15|count_permits16|count_permits17"))
   
   all_net19 <- all_net %>% 
-    dplyr::select(matches("uniqueID|cvID|geometry|19|count_permits16|count_permits17|count_permits18"))
+    dplyr::select(matches("uniqueID|cvID|geometry|19|count_permits15|count_permits16|count_permits17|count_permits18"))
   
 }
 
@@ -756,16 +756,55 @@
   
   # weird way of looking at which predictors are the most accurate
   {
-    
+    cor_mats <- cbind(cor_mat15,cor_mat16$count_permits16,cor_mat17$count_permits17) %>% 
+      rename(count_permits16 = `cor_mat16$count_permits16`,
+             count_permits17 = `cor_mat17$count_permits17`) %>% 
+      rbind(data.frame(feature = c("count_permits_3","count_permits_2","count_permits_1"),
+                       count_permits15 = rep(0,3), 
+                       count_permits16 = rep(0,3),
+                       count_permits17 = rep(0,3)), .) %>% 
+      cbind(cor_mat18$count_permits18,cor_mat19$count_permits19) %>% 
+      rename(count_permits18 = `cor_mat18$count_permits18`,
+             count_permits19 = `cor_mat19$count_permits19`)
+    cor_mats$average <- abs(rowMeans(cor_mats[,2:6]))
+    cor_mats <- cor_mats %>% 
+      arrange(desc(average))
+    # fixing some stuff
+    cor_mats[5,7] <- mean(c(cor_mat18 %>% filter(feature == "count_permits17") %>% pull(count_permits18),
+                          cor_mat19 %>% filter(feature == "count_permits18") %>% pull(count_permits19)))
+    cor_mats[7,7] <- mean(c(cor_mat17 %>% filter(feature == "count_permits15") %>% pull(count_permits17),
+                            cor_mat18 %>% filter(feature == "count_permits16") %>% pull(count_permits18),
+                            cor_mat19 %>% filter(feature == "count_permits17") %>% pull(count_permits19)))
+    cor_mats[10,7] <- mean(c(cor_mat16 %>% filter(feature == "count_permits13") %>% pull(count_permits16),
+                             cor_mat17 %>% filter(feature == "count_permits14") %>% pull(count_permits17),
+                             cor_mat18 %>% filter(feature == "count_permits15") %>% pull(count_permits18),
+                             cor_mat19 %>% filter(feature == "count_permits16") %>% pull(count_permits19)))
+    cor_mats <- cor_mats %>% 
+      arrange(desc(average))
   }
 }
 
-# all variables together
+# Data Exploration ----
 {
-  all_net <- left_join(permit_net, st_drop_geometry(vars_net1), by="uniqueID")
+  # moving forward with all_net19 now
+  # define vars to keepf or model
+  var_for_model <- c("uniqueID","cvID","count_permits19","count_permits18","count_permits17","count_permits16",
+                     "count_permits15","Building Construction 2019","Illegal Dumping 2019","Rubbish/Recyclable Material Collection 2019",
+                     "Dangerous Sidewalk 2019","private_vehicle_occ 19","Vacant House or Commercial 2019","renter_occ 19",
+                     "vehicles_avail 19","Median Rent 19","pct_white 19","Total Population 19","mobility_tot_metro 19",
+                     "samehouse1yr_metro 19","dangerSide19.nn","buildingCon19.nn","Median HH Income 19","Rent (as %age of Income) 19",
+                     "illegalDump19.nn","Street Trees 2019","vacant19.nn","owner_occ 19","parksNrec19.nn","streetTrees19.nn",
+                     "materialColl19.nn","children 19","Parks and Rec Safety and Maintenance 2019","mapname")
   
-  # make a subset of the net with variables we're actually interested in putting in the model
-  # add neighborhood names to data
+  # add neighborhood names
+  allnet19_formodel <- all_net19 %>% 
+    st_centroid() %>%
+    st_join(dplyr::select(nhoods, mapname)) %>%
+    st_drop_geometry() %>%
+    dplyr::select(all_of(var_for_model)) %>% 
+    left_join(dplyr::select(all_net19, geometry, uniqueID), by = "uniqueID") %>%
+    st_sf()
+  
   subset_net <- all_net %>%
     st_centroid() %>%
     st_join(dplyr::select(nhoods, mapname)) %>%
@@ -774,34 +813,9 @@
     st_sf() %>%
     na.omit()
   
-}
-
-# correlation matrix
-{
-  # making this moreso to see which would actually be good predictors
-  for_cormat <- all_net %>% 
-    st_drop_geometry() %>% 
-    dplyr::select(-c(uniqueID,cvID))
-  
-  ggcorrplot(
-    round(cor(for_cormat), 1), 
-    # method = "circle",
-    p.mat = cor_pmat(for_cormat),
-    colors = c("#4b2875", "white", "#9c1339"),
-    type="lower",
-    insig = "blank",
-    digits = 4,
-    lab = T, lab_size = 2) +  
-    labs(title = "Correlation",
-         caption = "Figure x.") 
-  
-}
-
-# Data Exploration ----
-{
   # all predictors
   {
-    vars_net.long <- gather(subset_net %>% dplyr::select(-count_permits),
+    vars_net.long <- gather(all_net19 %>% dplyr::select(-count_permits),
                             variable, value, -geometry, -uniqueID, -cvID, -mapname)
     
     vars <- unique(vars_net.long$variable)
