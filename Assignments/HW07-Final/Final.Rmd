@@ -360,7 +360,6 @@ reports311 <- reports311 %>%
 reports311 <- reports311 %>%
   filter(!is.na(lon) & !is.na(lat)) %>%
   st_as_sf(coords = c("lon","lat"), crs = 4326) %>%
-  #st_transform('ESRI:102728') %>%
   st_transform(crs = 2272) %>% 
   mutate(
     type = service_name,
@@ -555,29 +554,28 @@ permit_count_map19
 # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (legend_name), aggregating with function (sum_or_mean)
 # for example, to make a fishnet summing all total_pop variables for 2013, one would define the variables as follows:
 # dat_tract <- tracts13; var_name <- "total_pop"; legend_name <- "Total Population"; sum_or_mean <- sum
-makenet <- function(dat_tract, var_name, legend_name, sum_or_mean)
+makenet <- function(dat_tract, var_name, legend_name, sum_or_mean){
+  
+  net_tract <- dat_tract %>% 
+    .[philly,] %>% 
+    dplyr::select(matches(var_name)) %>% 
+    mutate(Legend = legend_name) %>% 
+    st_join(fishnet, join=st_within) %>%
+    st_drop_geometry() %>%
+    group_by(uniqueID, Legend) %>%
+    summarize(count = sum_or_mean(get(var_name), na.rm = T)) %>%
+    left_join(fishnet, ., by = "uniqueID") %>%  # add geometry back in
+    spread(Legend, count, fill=0) %>%  # fill in ones where fishnet was missing, count was NA with 0
+    dplyr::select(-`<NA>`) %>%
+    ungroup()
+  
+  return(net_tract)
+}
 
-net_tract <- dat_tract %>% 
-  .[philly,] %>% 
-  dplyr::select(matches(var_name)) %>% 
-  mutate(Legend = legend_name) %>% 
-  st_join(fishnet, join=st_within) %>%
-  st_drop_geometry() %>%
-  group_by(uniqueID, Legend) %>%
-  summarize(count = sum_or_mean(get(var_name), na.rm = T)) %>%
-  left_join(fishnet, ., by = "uniqueID") %>%  # add geometry back in
-  spread(Legend, count, fill=0) %>%  # fill in ones where fishnet was missing, count was NA with 0
-  dplyr::select(-`<NA>`) %>%
-  ungroup()
-
-return(net_tract)
-
-
-r_names <- names(tracts13)[3:14]
-gend_names <- c("Total Population","Median HH Income","Median Rent","Rent (as %age of Income)","mobility_tot_metro",
-                "samehouse1yr_metro","owner_occ","renter_occ","vehicles_avail","private_vehicle_occ","children",
-                "pct_white")
-
+var_names <- names(tracts13)[3:14]
+legend_names <- c("Total Population","Median HH Income","Median Rent","Rent (as %age of Income)","mobility_tot_metro",
+                  "samehouse1yr_metro","owner_occ","renter_occ","vehicles_avail","private_vehicle_occ","children","pct_white")
+  
 dat_tracts <- paste0("tracts",13:19)
 
 # for loop to create fish nets for all ACS variables for all years
@@ -615,7 +613,8 @@ for (i in 1:length(dat_tracts)) {
     }
   }
 }
-  
+
+
 ```
 
 
