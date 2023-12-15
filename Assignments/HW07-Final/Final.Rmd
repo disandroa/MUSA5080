@@ -769,11 +769,11 @@ ggcorrplot(
 
 ### Spatial Process of Permit Count
 
-Another interesting feature to add to the model is one that can help us define the spatial process of vandalism in Philadelphia. One tool to examine spatial process is local Moran's *I*, which helps us understand whether the vandalism count at a certain location is randomly distributed or clustered relative to its immediate neighbors.
+We also added some features that explain the spatial process of permit issuance in Philadelphia. Using local Moran's *I*, we examined the spatial process which helps us understand whether the permit count at a certain location is randomly distributed or clustered relative to its immediate neighbors. 
 
 ### Models
 
-Since the outcome we are interested in is a count or sum of vandalism incidents, I use a Poisson regression model to estimate the outcome. I created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process (I ultimately only kept the model with both risk factors and spatial process).
+Since the outcome we are interested in is a count of permits issued in different regions of Philadelphia, we use a Poisson regression model. We created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process.
 
 ### Validation
 
