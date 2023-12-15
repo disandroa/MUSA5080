@@ -58,7 +58,7 @@ library(lubridate)
 
 set.seed(172)
 
-setwd("~/Documents/MUSA5080")
+#setwd("~/Documents/MUSA5080")
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
@@ -370,7 +370,10 @@ reports311 <- reports311 %>%
   
 ```
 
-Development patterns may be spread over space, such that it forms a smooth 'mosaic' across the city of Philadelphia. Alternatively, it is possible that several permits may be clustered together, either because they were all submitted as part of the same construction project (ie, submitting an electrical permit and roofing permit for the same property) or there were several units being worked in tandem. To better understand whether Philadelphia is experiecing a 'mosaic' of development or if development has been clustered into particular areas, a fishnet was established for grid cells of 500 meter by 500 meters across the city. The 500 meter scale (1/3rd mile) allows for a fluid understanding of development patterns at the block scale. Figure 2 
+Development patterns may be spread over space, such that it forms a smooth 'mosaic' across the city of Philadelphia. Alternatively, it is possible that several permits may be clustered together, either because they were all submitted as part of the same construction project (ie, submitting an electrical permit and roofing permit for the same property) or there were several units being worked in tandem. To better understand whether Philadelphia is experiencing a 'mosaic' of development or if development has been clustered into particular areas, a fishnet was established for grid cells of 500 meter by 500 meters across the city. The 500 meter scale (1/3rd mile) allows for a fluid understanding of development patterns at the block scale. 
+
+
+Figure 1 below shows the number of permits granted for each fishnet square in 2014, followed by Figure 2 showing the number of permits for each fishnet square in 2015, and so on until Figure 6 demonstrating the number of permits granted for each fishnet square in 2019. As is visible through the maps, trends and patterns of development shift across the city, such that in 2014 development centered around the Center City Neighborhood, while moving towards 2019 - when record number of permits were granted for the time period in focus - development was centered in Center City as well as North Philadelphia. 
 
 #### Figure 2. Permit Count on Fishnet
 
@@ -494,13 +497,65 @@ permit_net_allyrs <- permit_net13 %>%
 #   mapTheme()
 # 
 # permit_count_map
+
+ permit_count_map14 <- ggplot() +
+   geom_sf(data = permit_net14, aes(fill = count_permits14)) +
+   scale_fill_viridis() +
+   labs(title = "Count of New Construction Permits for the fishnet 2014",
+        caption = "Figure 1.") +
+   mapTheme()
+
+ permit_count_map15 <- ggplot() +
+   geom_sf(data = permit_net15, aes(fill = count_permits15)) +
+   scale_fill_viridis() +
+   labs(title = "Count of New Construction Permits for the fishnet 2015",
+        caption = "Figure 2.") +
+   mapTheme()
+
+ permit_count_map16 <- ggplot() +
+   geom_sf(data = permit_net16, aes(fill = count_permits16)) +
+   scale_fill_viridis() +
+   labs(title = "Count of New Construction Permits for the fishnet 2016",
+        caption = "Figure 3.") +
+   mapTheme()
+
+ permit_count_map17 <- ggplot() +
+   geom_sf(data = permit_net17, aes(fill = count_permits17)) +
+   scale_fill_viridis() +
+   labs(title = "Count of New Construction Permits for the fishnet 2017",
+        caption = "Figure 4.") +
+   mapTheme()
+
+ permit_count_map18 <- ggplot() +
+   geom_sf(data = permit_net18, aes(fill = count_permits18)) +
+   scale_fill_viridis() +
+   labs(title = "Count of New Construction Permits for the fishnet 2018",
+        caption = "Figure 5.") +
+   mapTheme()
+
+ permit_count_map19 <- ggplot() +
+   geom_sf(data = permit_net19, aes(fill = count_permits19)) +
+   scale_fill_viridis() +
+   labs(title = "Count of New Construction Permits for the fishnet 2019",
+        caption = "Figure 6.") +
+   mapTheme()
+ 
+ 
+permit_count_map14
+permit_count_map15
+permit_count_map16
+permit_count_map17
+permit_count_map18
+permit_count_map19
+
+
 ```
 
 ```{r create census_net}
 # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (legend_name), aggregating with function (sum_or_mean)
 # for example, to make a fishnet summing all total_pop variables for 2013, one would define the variables as follows:
 # dat_tract <- tracts13; var_name <- "total_pop"; legend_name <- "Total Population"; sum_or_mean <- sum
-makenet <- function(dat_tract, var_name, legend_name, sum_or_mean){
+makenet <- function(dat_tract, var_name, legend_name, sum_or_mean)
 
 net_tract <- dat_tract %>% 
   .[philly,] %>% 
