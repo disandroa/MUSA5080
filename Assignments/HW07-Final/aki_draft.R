@@ -23,6 +23,7 @@
   library(rphl)
   library(stringr)
   library(lubridate)
+  library(stats)
   
   set.seed(172)
   
@@ -292,10 +293,6 @@
   philly <- st_read("https://opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
     st_transform(crs = 2272) %>% 
     dplyr::select(OBJECTID,geometry)
-  
-  # limit permit dat to philly border
-  newcon_permits <- newcon_permits %>% 
-    .[philly,]
 }
 
 # Create Fishnet
@@ -442,41 +439,38 @@
   reports311 <- reports311 %>%
     filter(!is.na(lon) & !is.na(lat)) %>%
     st_as_sf(coords = c("lon","lat"), crs = 4326) %>%
-    #st_transform('ESRI:102728') %>%
     st_transform(crs = 2272) %>% 
     mutate(
-      type = service_name,
+      type = str_replace_all(service_name, "[^[:alnum:]]", ""),
       Legend = "311") %>% 
     dplyr::select(Legend, type, geometry, Year)
   
   # make fishnet of all reports across all years
   {
-    reports_15 <- reports311 %>% 
-      filter(Year == 2015)
-    reports_16 <- reports311 %>% 
-      filter(Year == 2016)
-    reports_17 <- reports311 %>% 
-      filter(Year == 2017)
-    reports_18 <- reports311 %>% 
-      filter(Year == 2018)
-    reports_19 <- reports311 %>% 
-      filter(Year == 2019)
+    long_15 <- reports311 %>% 
+      filter(Year == 2015) %>% 
+      arrange(type) %>%  
+      mutate(Legend = paste0(type, Year), .keep = "unused")
     
-    long_15 <- reports_15 %>% 
+    long_16 <- reports311 %>% 
+      filter(Year == 2016) %>% 
       arrange(type) %>%  
-      mutate(Legend = paste(type, Year), .keep = "unused")
-    long_16 <- reports_16 %>% 
+      mutate(Legend = paste0(type, Year), .keep = "unused")
+    
+    long_17 <- reports311 %>% 
+      filter(Year == 2017) %>% 
       arrange(type) %>%  
-      mutate(Legend = paste(type, Year), .keep = "unused")
-    long_17 <- reports_17 %>% 
+      mutate(Legend = paste0(type, Year), .keep = "unused")
+    
+    long_18 <- reports311 %>% 
+      filter(Year == 2018) %>% 
       arrange(type) %>%  
-      mutate(Legend = paste(type, Year), .keep = "unused")
-    long_18 <- reports_18 %>% 
+      mutate(Legend = paste0(type, Year), .keep = "unused")
+    
+    long_19 <- reports311 %>% 
+      filter(Year == 2019) %>% 
       arrange(type) %>%  
-      mutate(Legend = paste(type, Year), .keep = "unused")
-    long_19 <- reports_19 %>% 
-      arrange(type) %>%  
-      mutate(Legend = paste(type, Year), .keep = "unused")
+      mutate(Legend = paste0(type, Year), .keep = "unused")
     
     vars311_net <- rbind(long_15, long_16, long_17, long_18, long_19) %>% 
       st_join(fishnet, join = st_within) %>%
@@ -497,45 +491,45 @@
     
     # add nearest neighbor features
     vars311_net <- vars311_net %>%
-      mutate(buildingCon15.nn = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "Building Construction 2015")), 3),
-             dangerSide15.nn = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "Dangerous Sidewalk 2015")), 3),
-             illegalDump15.nn = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "Illegal Dumping 2015")), 3),
-             parksNrec15.nn = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "Parks and Rec Safety and Maintenance 2015")), 3),
-             materialColl15.nn = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "Rubbish/Recyclable Material Collection 2015")), 3),
-             streetTrees15.nn = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "Street Trees 2015")), 3),
-             vacant15.nn = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "Vacant House or Commercial 2015")), 3),
+      mutate(buildingCon15.dist = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "BuildingConstruction2015")), 3),
+             dangerSide15.dist = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "DangerousSidewalk2015")), 3),
+             illegalDump15.dist = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "IllegalDumping2015")), 3),
+             parksNrec15.dist = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "ParksandRecSafetyandMaintenance2015")), 3),
+             materialColl15.dist = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "RubbishRecyclableMaterialCollection2015")), 3),
+             streetTrees15.dist = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "StreetTrees2015")), 3),
+             vacant15.dist = nn_function(vars311_net_ccoid, st_c(long_15 %>% filter(Legend == "VacantHouseorCommercial2015")), 3),
              
-             buildingCon16.nn = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "Building Construction 2016")), 3),
-             dangerSide16.nn = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "Dangerous Sidewalk 2016")), 3),
-             illegalDump16.nn = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "Illegal Dumping 2016")), 3),
-             parksNrec16.nn = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "Parks and Rec Safety and Maintenance 2016")), 3),
-             materialColl16.nn = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "Rubbish/Recyclable Material Collection 2016")), 3),
-             streetTrees16.nn = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "Street Trees 2016")), 3),
-             vacant16.nn = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "Vacant House or Commercial 2016")), 3),
+             buildingCon16.dist = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "BuildingConstruction2016")), 3),
+             dangerSide16.dist = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "DangerousSidewalk2016")), 3),
+             illegalDump16.dist = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "IllegalDumping2016")), 3),
+             parksNrec16.dist = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "ParksandRecSafetyandMaintenance2016")), 3),
+             materialColl16.dist = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "RubbishRecyclableMaterialCollection2016")), 3),
+             streetTrees16.dist = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "StreetTrees2016")), 3),
+             vacant16.dist = nn_function(vars311_net_ccoid, st_c(long_16 %>% filter(Legend == "VacantHouseorCommercial2016")), 3),
              
-             buildingCon17.nn = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "Building Construction 2017")), 3),
-             dangerSide17.nn = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "Dangerous Sidewalk 2017")), 3),
-             illegalDump17.nn = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "Illegal Dumping 2017")), 3),
-             parksNrec17.nn = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "Parks and Rec Safety and Maintenance 2017")), 3),
-             materialColl17.nn = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "Rubbish/Recyclable Material Collection 2017")), 3),
-             streetTrees17.nn = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "Street Trees 2017")), 3),
-             vacant17.nn = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "Vacant House or Commercial 2017")), 3),
+             buildingCon17.dist = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "BuildingConstruction2017")), 3),
+             dangerSide17.dist = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "DangerousSidewalk2017")), 3),
+             illegalDump17.dist = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "IllegalDumping2017")), 3),
+             parksNrec17.dist = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "ParksandRecSafetyandMaintenance2017")), 3),
+             materialColl17.dist = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "RubbishRecyclableMaterialCollection2017")), 3),
+             streetTrees17.dist = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "StreetTrees2017")), 3),
+             vacant17.dist = nn_function(vars311_net_ccoid, st_c(long_17 %>% filter(Legend == "VacantHouseorCommercial2017")), 3),
              
-             buildingCon18.nn = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "Building Construction 2018")), 3),
-             dangerSide18.nn = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "Dangerous Sidewalk 2018")), 3),
-             illegalDump18.nn = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "Illegal Dumping 2018")), 3),
-             parksNrec18.nn = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "Parks and Rec Safety and Maintenance 2018")), 3),
-             materialColl18.nn = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "Rubbish/Recyclable Material Collection 2018")), 3),
-             streetTrees18.nn = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "Street Trees 2018")), 3),
-             vacant18.nn = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "Vacant House or Commercial 2018")), 3),
+             buildingCon18.dist = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "BuildingConstruction2018")), 3),
+             dangerSide18.dist = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "DangerousSidewalk2018")), 3),
+             illegalDump18.dist = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "IllegalDumping2018")), 3),
+             parksNrec18.dist = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "ParksandRecSafetyandMaintenance2018")), 3),
+             materialColl18.dist = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "RubbishRecyclableMaterialCollection2018")), 3),
+             streetTrees18.dist = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "StreetTrees2018")), 3),
+             vacant18.dist = nn_function(vars311_net_ccoid, st_c(long_18 %>% filter(Legend == "VacantHouseorCommercial2018")), 3),
              
-             buildingCon19.nn = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "Building Construction 2019")), 3),
-             dangerSide19.nn = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "Dangerous Sidewalk 2019")), 3),
-             illegalDump19.nn = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "Illegal Dumping 2019")), 3),
-             parksNrec19.nn = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "Parks and Rec Safety and Maintenance 2019")), 3),
-             materialColl19.nn = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "Rubbish/Recyclable Material Collection 2019")), 3),
-             streetTrees19.nn = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "Street Trees 2019")), 3),
-             vacant19.nn = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "Vacant House or Commercial 2019")), 3)) 
+             buildingCon19.dist = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "BuildingConstruction2019")), 3),
+             dangerSide19.dist = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "DangerousSidewalk2019")), 3),
+             illegalDump19.dist = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "IllegalDumping2019")), 3),
+             parksNrec19.dist = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "ParksandRecSafetyandMaintenance2019")), 3),
+             materialColl19.dist = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "RubbishRecyclableMaterialCollection2019")), 3),
+             streetTrees19.dist = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "StreetTrees2019")), 3),
+             vacant19.dist = nn_function(vars311_net_ccoid, st_c(long_19 %>% filter(Legend == "VacantHouseorCommercial2019")), 3)) 
   }
 
 }
@@ -545,7 +539,7 @@
 {
   # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (legend_name), aggregating with function (sum_or_mean)
   # for example, to make a fishnet summing all total_pop variables for 2013, one would define the variables as follows:
-  # dat_tract <- tracts13; var_name <- "total_pop"; legend_name <- "Total Population"; sum_or_mean <- sum
+  # dat_tract <- tracts13; var_name <- "total_pop"; legend_name <- "total_pop13"; sum_or_mean <- sum
   makenet <- function(dat_tract, var_name, legend_name, sum_or_mean){
     
     net_tract <- dat_tract %>% 
@@ -565,8 +559,6 @@
   }
   
   var_names <- names(tracts13)[3:14]
-  legend_names <- c("Total Population", "Median HH Income", "Median Rent", "Rent (as %age of Income)", "mobility_tot_metro",
-                    "samehouse1yr_metro","owner_occ","renter_occ","vehicles_avail","private_vehicle_occ","children","pct_white")
   
   dat_tracts <- paste0("tracts",13:19)
   
@@ -578,7 +570,7 @@
       # select year, variable, and legend name
       yr <- i+12
       var_name <- var_names[j]
-      legend_name <- paste(legend_names[j],yr)
+      legend_name <- paste(var_name,yr)
       
       if (j %in% c(2:4,18)){
         sum_or_mean <- mean
@@ -756,31 +748,31 @@
   
   # weird way of looking at which predictors are the most accurate
   {
-    cor_mats <- cbind(cor_mat15,cor_mat16$count_permits16,cor_mat17$count_permits17) %>% 
-      rename(count_permits16 = `cor_mat16$count_permits16`,
-             count_permits17 = `cor_mat17$count_permits17`) %>% 
-      rbind(data.frame(feature = c("count_permits_3","count_permits_2","count_permits_1"),
-                       count_permits15 = rep(0,3), 
-                       count_permits16 = rep(0,3),
-                       count_permits17 = rep(0,3)), .) %>% 
-      cbind(cor_mat18$count_permits18,cor_mat19$count_permits19) %>% 
-      rename(count_permits18 = `cor_mat18$count_permits18`,
-             count_permits19 = `cor_mat19$count_permits19`)
-    cor_mats$average <- abs(rowMeans(cor_mats[,2:6]))
-    cor_mats <- cor_mats %>% 
-      arrange(desc(average))
-    # fixing some stuff
-    cor_mats[5,7] <- mean(c(cor_mat18 %>% filter(feature == "count_permits17") %>% pull(count_permits18),
-                          cor_mat19 %>% filter(feature == "count_permits18") %>% pull(count_permits19)))
-    cor_mats[7,7] <- mean(c(cor_mat17 %>% filter(feature == "count_permits15") %>% pull(count_permits17),
-                            cor_mat18 %>% filter(feature == "count_permits16") %>% pull(count_permits18),
-                            cor_mat19 %>% filter(feature == "count_permits17") %>% pull(count_permits19)))
-    cor_mats[10,7] <- mean(c(cor_mat16 %>% filter(feature == "count_permits13") %>% pull(count_permits16),
-                             cor_mat17 %>% filter(feature == "count_permits14") %>% pull(count_permits17),
-                             cor_mat18 %>% filter(feature == "count_permits15") %>% pull(count_permits18),
-                             cor_mat19 %>% filter(feature == "count_permits16") %>% pull(count_permits19)))
-    cor_mats <- cor_mats %>% 
-      arrange(desc(average))
+    # cor_mats <- cbind(cor_mat15,cor_mat16$count_permits16,cor_mat17$count_permits17) %>% 
+    #   rename(count_permits16 = `cor_mat16$count_permits16`,
+    #          count_permits17 = `cor_mat17$count_permits17`) %>% 
+    #   rbind(data.frame(feature = c("count_permits_3","count_permits_2","count_permits_1"),
+    #                    count_permits15 = rep(0,3), 
+    #                    count_permits16 = rep(0,3),
+    #                    count_permits17 = rep(0,3)), .) %>% 
+    #   cbind(cor_mat18$count_permits18,cor_mat19$count_permits19) %>% 
+    #   rename(count_permits18 = `cor_mat18$count_permits18`,
+    #          count_permits19 = `cor_mat19$count_permits19`)
+    # cor_mats$average <- abs(rowMeans(cor_mats[,2:6]))
+    # cor_mats <- cor_mats %>% 
+    #   arrange(desc(average))
+    # # fixing some stuff
+    # cor_mats[5,7] <- mean(c(cor_mat18 %>% filter(feature == "count_permits17") %>% pull(count_permits18),
+    #                       cor_mat19 %>% filter(feature == "count_permits18") %>% pull(count_permits19)))
+    # cor_mats[7,7] <- mean(c(cor_mat17 %>% filter(feature == "count_permits15") %>% pull(count_permits17),
+    #                         cor_mat18 %>% filter(feature == "count_permits16") %>% pull(count_permits18),
+    #                         cor_mat19 %>% filter(feature == "count_permits17") %>% pull(count_permits19)))
+    # cor_mats[10,7] <- mean(c(cor_mat16 %>% filter(feature == "count_permits13") %>% pull(count_permits16),
+    #                          cor_mat17 %>% filter(feature == "count_permits14") %>% pull(count_permits17),
+    #                          cor_mat18 %>% filter(feature == "count_permits15") %>% pull(count_permits18),
+    #                          cor_mat19 %>% filter(feature == "count_permits16") %>% pull(count_permits19)))
+    # cor_mats <- cor_mats %>% 
+    #   arrange(desc(average))
   }
 }
 
@@ -789,24 +781,23 @@
   # moving forward with all_net19 now
   # define vars to keepf or model
   var_for_model <- c("uniqueID","cvID","count_permits19","count_permits18","count_permits17","count_permits16",
-                     "count_permits15","Building Construction 2019","Illegal Dumping 2019","Rubbish/Recyclable Material Collection 2019",
-                     "Dangerous Sidewalk 2019","private_vehicle_occ 19","Vacant House or Commercial 2019","renter_occ 19",
-                     "vehicles_avail 19","Median Rent 19","pct_white 19","Total Population 19","mobility_tot_metro 19",
-                     "samehouse1yr_metro 19","dangerSide19.nn","buildingCon19.nn","Median HH Income 19","Rent (as %age of Income) 19",
-                     "illegalDump19.nn","Street Trees 2019","vacant19.nn","owner_occ 19","parksNrec19.nn","streetTrees19.nn",
-                     "materialColl19.nn","children 19","Parks and Rec Safety and Maintenance 2019","mapname")
+                     "count_permits15","BuildingConstruction2019","IllegalDumping2019","RubbishRecyclableMaterialCollection2019",
+                     "DangerousSidewalk2019","private_vehicle_occ 19","VacantHouseorCommercial2019","renter_occ 19",
+                     "vehicles_avail 19","med_rent 19","pct_white 19","total_pop 19","mobility_tot_metro 19",
+                     "samehouse1yr_metro 19","dangerSide19.dist","buildingCon19.dist","med_hh_inc 19","pct_rent_hhinc 19",
+                     "illegalDump19.dist","StreetTrees2019","vacant19.dist","owner_occ 19","parksNrec19.dist","streetTrees19.dist",
+                     "materialColl19.dist","children 19","ParksandRecSafetyandMaintenance2019","mapname")
   
   # add neighborhood names
   allnet19_formodel <- all_net19 %>% 
     st_centroid() %>%
     st_join(dplyr::select(nhoods, mapname)) %>%
     st_drop_geometry() %>%
-    dplyr::select(all_of(var_for_model)) %>% 
     left_join(dplyr::select(all_net19, geometry, uniqueID), by = "uniqueID") %>%
     st_sf()
   
   # only keep years for count_permit columns
-  names(allnet19_formodel) <- c(str_replace_all(var_for_model, c(" 19" = ""," 2019" = "","19." = ".")), "geometry")
+  names(allnet19_formodel) <- c(str_replace_all(var_for_model, c(" 19" = "","2019" = "","19." = ".")), "geometry")
   
   # all predictors
   {
@@ -889,13 +880,65 @@
       group_by(variable) %>%
       summarize(correlation = cor(value, count_permits19, use = "complete.obs"))
     
-    ggplot(correlation.long, aes(value, count_permits19)) +
+    # "buildingCon.dist"                    "BuildingConstruction"               
+    # [3] "children"                            "count_permits15"                    
+    # [5] "count_permits16"                     "count_permits17"                    
+    # [7] "count_permits18"                     "DangerousSidewalk"                  
+    # [9] "dangerSide.dist"                     "illegalDump.dist"                   
+    # [11] "IllegalDumping"                      "materialColl.dist"                  
+    # [13] "med_hh_inc"                          "med_rent"                           
+    # [15] "mobility_tot_metro"                  "owner_occ"                          
+    # [17] "ParksandRecSafetyandMaintenance"     "parksNrec.dist"                     
+    # [19] "pct_rent_hhinc"                      "pct_white"                          
+    # [21] "permitct.isSig"                      "permitct.isSig.dist"                
+    # [23] "private_vehicle_occ"                 "renter_occ"                         
+    # [25] "RubbishRecyclableMaterialCollection" "samehouse1yr_metro"                 
+    # [27] "StreetTrees"                         "streetTrees.dist"                   
+    # [29] "total_pop"                           "vacant.dist"                        
+    # [31] "VacantHouseorCommercial"             "vehicles_avail" 
+    
+    # multiple correlation plots
+    var_group1 <- c("count_permits18","count_permits17","count_permits16","count_permits15",
+                    "total_pop","med_hh_inc","med_rent","pct_rent_hhinc",
+                    "mobility_tot_metro","samehouse1yr_metro","owner_occ","renter_occ",
+                    "vehicles_avail","private_vehicle_occ","children","pct_white")
+    
+    var_group2 <- c("BuildingConstruction", "buildingCon.dist","IllegalDumping","illegalDump.dist",
+                    "RubbishRecyclableMaterialCollection","materialColl.dist","DangerousSidewalk","dangerSide.dist",
+                    "VacantHouseorCommercial","vacant.dist","StreetTrees","streetTrees.dist",
+                    "ParksandRecSafetyandMaintenance","parksNrec.dist","permitct.isSig","permitct.isSig.dist")
+    
+    ggplot(correlation.long %>% 
+             filter(variable %in% var_group1) %>% 
+             mutate(variable = factor(variable, levels = var_group1)), 
+           aes(value, count_permits19)) +
       geom_point(size = 0.1) +
-      geom_text(data = correlation.cor, aes(label = paste("r =", round(correlation, 2))),
+      geom_text(data = correlation.cor %>% 
+                  filter(variable %in% var_group1) %>% 
+                  mutate(variable = factor(variable, levels = var_group1)), 
+                aes(label = paste("r =", round(correlation, 2))),
                 x=-Inf, y=Inf, vjust = 1.5, hjust = -.1) +
       geom_smooth(method = "lm", se = FALSE, colour = "black") +
       facet_wrap(~variable, ncol = 4, scales = "free") +
-      labs(title = "Permit count as a function of predictors",
+      labs(title = "Permit count as a function of predictors (Group 1)",
+           subtitle = "Group 1: Previous years' permit counts and census data",
+           caption = "Figure x.") +
+      plotTheme(title_size = 14)
+    
+    ggplot(correlation.long %>% 
+             filter(variable %in% var_group2) %>% 
+             mutate(variable = factor(variable, levels = var_group2)), 
+           aes(value, count_permits19)) +
+      geom_point(size = 0.1) +
+      geom_text(data = correlation.cor %>% 
+                  filter(variable %in% var_group2) %>% 
+                  mutate(variable = factor(variable, levels = var_group2)), 
+                aes(label = paste("r =", round(correlation, 2))),
+                x=-Inf, y=Inf, vjust = 1.5, hjust = -.1) +
+      geom_smooth(method = "lm", se = FALSE, colour = "black") +
+      facet_wrap(~variable, ncol = 4, scales = "free") +
+      labs(title = "Permit count as a function of predictors (Group 2)",
+           subtitle = "Group 2: 311 incident report data and spatial process",
            caption = "Figure x.") +
       plotTheme(title_size = 14)
   }
@@ -903,7 +946,7 @@
   # Poisson regression
   {
     final_net %>% ggplot(aes(x = count_permits19)) +
-      geom_histogram(bins = 66) +
+      geom_histogram(bins = 66, fill = viridis::cividis(1)) +
       theme_minimal() +
       labs(title = "Permit Distribution",
            x = "Count of New Construction Permits", y = "Count",
@@ -916,24 +959,31 @@
   # building model
   {
     # just risk factors
-    reg.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", 
-                  "total_hpss", "total_restaurants", "Trees", "Vacants")
+    reg.vars <- c("count_permits18","count_permits17","count_permits16","count_permits15","BuildingConstruction",
+                  "IllegalDumping","DangerousSidewalk","RubbishRecyclableMaterialCollection","vehicles_avail",
+                  "med_rent","renter_occ","VacantHouseorCommercial","total_pop",
+                  "samehouse1yr_metro","StreetTrees","children","parksNrec.dist") # this row includes lower correlations that can be taken out
+    
+    # used the following to help decide reg.vars
+    # temp <- correlation.cor %>% mutate(abs_cor = abs(correlation)) %>% arrange(desc(abs_cor))
+    # rm(temp)
+    
+    # things to note:
+    # Building Construction is highly correlated to dangerous sidewalk and illegal dumping, might change reg.vars
     
     ## RUN REGRESSIONS
-    reg.CV <- crossValidate(
-      dataset = final_net,
-      id = "cvID",
-      dependentVariable = "count_permits19",
-      indVariables = reg.vars) %>%
+    reg.CV <- crossValidate(dataset = final_net,
+                            id = "cvID",
+                            dependentVariable = "count_permits19",
+                            indVariables = reg.vars) %>%
+      dplyr::select(cvID, count_permits19, Prediction, geometry) %>% 
       mutate(error = count_permits19 - Prediction)
     
     # MAE
-    reg.MAE <- mean(abs(reg.CV$error)) # 45.08406
-    
+    reg.MAE <- mean(abs(reg.CV$error)) # ~7.558753
     
     # with local Moran's I spatial process features
-    reg.sp.vars <- c("city_hall.nn", "in_bike_net", "is_historic", "ppr_sites.nn", "schools.nn", "septa_stops.nn", 
-                     "total_hpss", "total_restaurants", "Trees", "Vacants","permitct.isSig", "permitct.isSig.dist")
+    reg.sp.vars <- c(reg.vars,"permitct.isSig","permitct.isSig.dist")
     
     ## RUN REGRESSIONS
     reg.spatialCV <- crossValidate(
@@ -945,8 +995,44 @@
       mutate(error = count_permits19 - Prediction)
     
     # MAE
-    reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # 36.35607
+    reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # ~5.589619
     
+    # LOGO-CV
+    # redefining crossValidate() to make sure NAs are removed from id list
+    
+    crossValidate <- function(dataset, id, dependentVariable, indVariables) {
+      
+      allPredictions <- data.frame()
+      # cvID_list <- unique(dataset[[id]])
+      cvID_list <- as.character(na.omit(unique(dataset[[id]])))
+      
+      for (i in cvID_list) {
+        
+        thisFold <- i
+        cat("This hold out fold is", thisFold, "\n")
+        
+        fold.train <- filter(dataset, dataset[[id]] != thisFold) %>% as.data.frame() %>% 
+          dplyr::select(id, geometry, all_of(indVariables),
+                        all_of(dependentVariable))
+        fold.test  <- filter(dataset, dataset[[id]] == thisFold) %>% as.data.frame() %>% 
+          dplyr::select(id, geometry, all_of(indVariables),
+                        all_of(dependentVariable))
+        
+        form_parts <- paste0(dependentVariable, " ~ ", paste0(indVariables, collapse = "+"))
+        form <- as.formula(form_parts)
+        regression <- glm(form, family = "poisson",
+                          data = fold.train %>%
+                            dplyr::select(-geometry, -id))
+        
+        thisPrediction <-
+          mutate(fold.test, Prediction = predict(regression, fold.test, type = "response"))
+        
+        allPredictions <-
+          rbind(allPredictions, thisPrediction)
+        
+      }
+      return(st_sf(allPredictions))
+    }
     
     # adding neighborhood for LOGO CV, risk factors only
     reg.logoCV <- crossValidate(
@@ -957,7 +1043,7 @@
       mutate(error = count_permits19 - Prediction)
     
     # MAE
-    reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 46.49673
+    reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 8.290278
     
     
     # adding neighborhood for LOGO CV, risk factors + spatial process
@@ -970,7 +1056,7 @@
       mutate(error = count_permits19 - Prediction)
     
     # MAE
-    reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 37.12363
+    reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 6.158161
     
   }
   
@@ -978,12 +1064,18 @@
   # TO DO: add observed count of permits as well
   {
     reg.summary <- rbind(
+      mutate(reg.CV,
+             Error = Prediction - count_permits19,
+             Regression = "Random k-fold CV: Predictors"),
       mutate(reg.spatialCV,
              Error = Prediction - count_permits19,
-             Regression = "Random k-fold CV"),
+             Regression = "Random k-fold CV: Predictors with Spatial Process"),
+      mutate(reg.logoCV, 
+             Error = Prediction - count_permits19,
+             Regression = "Spatial LOGO-CV: Predictors"),
       mutate(reg.logo.spatialCV, 
              Error = Prediction - count_permits19,
-             Regression = "Spatial LOGO-CV")) %>%
+             Regression = "Spatial LOGO-CV: Predictors with Spatial Process")) %>%
       st_sf() 
     
     error_by_reg_and_fold <- 
@@ -1026,19 +1118,20 @@
                 `SD MAE` = round(sd(MAE), 2)) %>%
       kable(caption = "Table 1: Summary of Regressions") %>%
       kable_styling("striped", full_width = F) %>% 
+      row_spec(2, bold = T, color = "white", background = viridis::cividis(1)) %>% 
       kable_classic(full_width = F, html_font = "Cambria")
     
   }
   
   # mean error by neighborhood racial context
   {
-    RaceContext <- tracts22 %>% 
+    RaceContext <- tracts19 %>% 
       dplyr::select(GEOID,total_pop,RaceContext,geometry) %>% 
       .[nhoods,]
     
     reg.summary %>% 
       st_centroid() %>%
-      st_join(tracts22 %>% dplyr::select(RaceContext, geometry)) %>%
+      st_join(tracts19 %>% dplyr::select(RaceContext, geometry)) %>%
       na.omit() %>%
       st_drop_geometry() %>%
       group_by(Regression, RaceContext) %>%
