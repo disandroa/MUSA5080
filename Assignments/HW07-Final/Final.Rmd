@@ -1,5 +1,5 @@
 ---
-title: "Predicting Gentrification in Philadelphia"
+title: "Predicting Development and Gentrification in Philadelphia"
 author: "Akira Di Sandro & Benjamin Myers"
 date: "2023-12-15"
 output: 
@@ -10,14 +10,14 @@ output:
 ---
 # Memo 
 From: PHL Geo Inc.
-TO: City Council
+TO: Philadelphia City Council
 Subject: Introduction of a new development monitoring tool
 
 Dear City Council Members, 
 
 We are PHL Geo Inc., a Philadelphia based civil-service oriented coding organization using the power of geospatial analysis and city-owned data to provide informed insights to decision makers such as yourself. We are reaching out to introduce an exciting new tool which can be used in your districts immediately. The tool is called the GENTRISK and uses 10 years of development information to predict where development may happen in your community in the near future. The GENTRISK may be used in your district to manage the negative impacts of development, including trash dumping, street closures, and noise complaints. Getting ahead of development impacts can improve coordination and communication with residents in your district, improve the likelihood of successful permit applications, and enable smart zoning and growth in your city council region. 
 
-The GENTRISK uses information from the past 10 years of development and combines that with external factors including the distance to schools, tree density, and distance to public transit, in order to understand what is driving development in Philadelphia. The GENTRISK then uses the relationships between those factors to predict where development may occur so you can get ahead of any potential negative impacts. These predictions form the basis of several tools avialable in GENTRSIK, such as scenario planning. In the scenario planning framework, you may modify inputs to see how they will impact development going forward. For example, if the new Philly Tree Plan is likely to bring more tree canopy to your community, you can use the GENTRISK to model how much further development is likely to occur. 
+The GENTRISK uses information from the past 10 years of development and combines that with external factors including the distance to schools, tree density, and distance to public transit, in order to understand what is driving development in Philadelphia. The GENTRISK then uses the relationships between those factors to predict where development may occur so you can get ahead of any potential negative impacts. These predictions form the basis of several tools available in GENTRISK, such as scenario planning. In the scenario planning framework, you may modify inputs to see how they will impact development going forward. For example, if the new Philly Tree Plan is likely to bring more tree canopy to your community, you can use the GENTRISK to model how much further development is likely to occur. 
 
 The following document provides a technical overview of how the GENTRISK functions, how to interpret its results, and how it can be incorporated into your city planning techniques. We look forward to seeing GENTRISK integrated into your city planning toolkit. 
 
