@@ -612,7 +612,7 @@
 {
   # join census vars fishnet to permit count net + 311 net
   all_net <- left_join(permit_net_allyrs, census_net, by = "uniqueID") %>% 
-    left_join(vars311_net, by = "uniqueID") %>% 
+    left_join(vars311_net %>% st_drop_geometry(), by = "uniqueID") %>% 
     st_as_sf()
   
   all_net15 <- all_net %>% 
@@ -654,7 +654,8 @@
     
     cor_mat15 <- data.frame(cor(for_cormat15)) %>% 
       dplyr::select(count_permits15) %>% 
-      arrange(desc(count_permits15))
+      # arrange(desc(count_permits15)) %>% 
+      tibble::rownames_to_column("feature")
   }
   
   # 2016 net
@@ -677,7 +678,8 @@
     
     cor_mat16 <- data.frame(cor(for_cormat16)) %>% 
       dplyr::select(count_permits16) %>% 
-      arrange(desc(count_permits16))
+      # arrange(desc(count_permits16)) %>%
+      tibble::rownames_to_column("feature")
   }
   
   # 2017 net
@@ -700,7 +702,8 @@
     
     cor_mat17 <- data.frame(cor(for_cormat17)) %>% 
       dplyr::select(count_permits17) %>% 
-      arrange(desc(count_permits17))
+      # arrange(desc(count_permits17)) %>% 
+      tibble::rownames_to_column("feature")
   }
   
   # 2018 net
@@ -723,7 +726,8 @@
     
     cor_mat18 <- data.frame(cor(for_cormat18)) %>% 
       dplyr::select(count_permits18) %>% 
-      arrange(desc(count_permits18))
+      # arrange(desc(count_permits18)) %>% 
+      tibble::rownames_to_column("feature")
   }
   
   # 2019 net
@@ -746,11 +750,14 @@
     
     cor_mat19 <- data.frame(cor(for_cormat19)) %>% 
       dplyr::select(count_permits19) %>% 
-      arrange(desc(count_permits19))
+      # arrange(desc(count_permits19)) %>% 
+      tibble::rownames_to_column("feature")
   }
   
   # weird way of looking at which predictors are the most accurate
-  
+  {
+    
+  }
 }
 
 # all variables together
