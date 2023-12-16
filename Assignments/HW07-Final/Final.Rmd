@@ -314,69 +314,25 @@ permit_net_allyrs <- permit_net13 %>%
   left_join(permit_net19 %>% st_drop_geometry() %>% dplyr::select(uniqueID,count_permits19), by = "uniqueID") %>% 
   left_join(permit_net13 %>% dplyr::select(-c(cvID,count_permits13,count_permits)), by = "uniqueID")
 
-# TODO: edit this to show permit count for all years on separate maps
-# would need to pur permit_net_allyrs into long form so i can use facet_wrap()
-# for '13, '15, '17, '19
+# map of permit count over time
+permit_net_formap <- permit_net_allyrs %>% 
+  dplyr::select(-c(uniqueID,cvID,count_permits14,count_permits16,count_permits18)) %>% 
+  rename(`Permit Count 2013` = count_permits13,
+         `Permit Count 2015` = count_permits15,
+         `Permit Count 2017` = count_permits17,
+         `Permit Count 2019` = count_permits19) %>% 
+  gather("count_permits", "value", -geometry) %>% 
+  st_as_sf()
 
-# permit_count_map <- ggplot() +
-#   geom_sf(data = permit_net_allyrs, aes(fill = count_permits)) +
-#   scale_fill_viridis() +
-#   labs(title = "Count of New Construction Permits for the fishnet",
-#        caption = "Figure x.") +
-#   mapTheme()
-# 
-# permit_count_map
+permit_count_map <- ggplot(data = permit_net_formap) +
+  geom_sf(aes(fill = value)) +
+  scale_fill_viridis() +
+  facet_wrap(~count_permits) +
+  labs(title = "Count of New Construction Permits for the fishnet",
+       caption = "Figure 1.") +
+  mapTheme(title_size = 14) + theme(legend.position="bottom")
 
- permit_count_map14 <- ggplot() +
-   geom_sf(data = permit_net14, aes(fill = count_permits14)) +
-   scale_fill_viridis() +
-   labs(title = "Count of New Construction Permits for the fishnet 2014",
-        caption = "Figure 1.") +
-   mapTheme()
-
- permit_count_map15 <- ggplot() +
-   geom_sf(data = permit_net15, aes(fill = count_permits15)) +
-   scale_fill_viridis() +
-   labs(title = "Count of New Construction Permits for the fishnet 2015",
-        caption = "Figure 2.") +
-   mapTheme()
-
- permit_count_map16 <- ggplot() +
-   geom_sf(data = permit_net16, aes(fill = count_permits16)) +
-   scale_fill_viridis() +
-   labs(title = "Count of New Construction Permits for the fishnet 2016",
-        caption = "Figure 3.") +
-   mapTheme()
-
- permit_count_map17 <- ggplot() +
-   geom_sf(data = permit_net17, aes(fill = count_permits17)) +
-   scale_fill_viridis() +
-   labs(title = "Count of New Construction Permits for the fishnet 2017",
-        caption = "Figure 4.") +
-   mapTheme()
-
- permit_count_map18 <- ggplot() +
-   geom_sf(data = permit_net18, aes(fill = count_permits18)) +
-   scale_fill_viridis() +
-   labs(title = "Count of New Construction Permits for the fishnet 2018",
-        caption = "Figure 5.") +
-   mapTheme()
-
- permit_count_map19 <- ggplot() +
-   geom_sf(data = permit_net19, aes(fill = count_permits19)) +
-   scale_fill_viridis() +
-   labs(title = "Count of New Construction Permits for the fishnet 2019",
-        caption = "Figure 6.") +
-   mapTheme()
- 
- 
-permit_count_map14
-permit_count_map15
-permit_count_map16
-permit_count_map17
-permit_count_map18
-permit_count_map19
-
+permit_count_map
 
 ```
 
@@ -385,44 +341,32 @@ There are a number of different methods to account for neighborhood change and t
 - Total Population: as population increases in a census tract, so too will housing pressures which can in turn lead to new construction of housing.
 - Median HH Income: as median household income increases, it is likely that the cost of amenities in the area, including housing, groceries, etc. will increase as well. 
 - Median Rent: a clear marker of development pressure, rent prices will increase as a neighborhood becomes more expensive. It can also be used to ask 'does higher rent in an area indcue more development' as developers seek to capitalize on higher prices?
-- Rent (as %age of Income): a markeer of affordabiliyt, it is possible that by building in rent-burdened communities 
-- Total Metro Mobility
 - Staying in the same house for 1 year: a marker of how many long-term residents are around, this can be used to assess the relationships that development has with the transition out of longer term residents. 
-- Owner Occupied (total)
 - Renter Occupied (total)
 - Number of Vehicles available
-- Private Vehicle occupancy Rate
 - Number of Children
-- Percent White
-
-
 
 The model powering GENTRISK requires that all of the variables are gathered in the same format and then compared across time. To  facilitatate this process, the PHL GEO Inc. team used the following code to gather all of the variables and put them into a similar format. These variables can then provide an understnaidng of how neighborhoods are changing over time, followed by an investigation of what could be driving those changes; ie, if development is happening in a neighborhood, what are the factors that drive that development?
 
-- Vacant and abandoned housing
-- Philadelphia Parks and Recreation Locations
-- Septa Stops
-- Distance to the 3 closest schools
-- Median Household Income
-- Renter Occupied Housing
-- Owner-occupied
-- Private vehicle ownership
+- Building Construction complaints
+- Vacant Housing or Commercial complaints
 - Dangerous Sidewalk complaints
 - Illegal dumping complaints
 - Parks and Recreation Safety and Maintenance complaints
 - Rubbish / Recyclable Material Collection complaints
 - Street Tree maintenance complaints
-- And the distance between those variables to eachother. 
+- And the distance between the centroid of each grid cell and the nearest 3 instances of the complaints listed above. 
+
 ```{r create census_net}
-# function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (legend_name), aggregating with function (sum_or_mean)
+# function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (var_name), aggregating with function (sum_or_mean)
 # for example, to make a fishnet summing all total_pop variables for 2019, one would define the variables as follows:
-# dat_tract <- tracts19; var_name <- "total_pop"; legend_name <- "Total Population"; sum_or_mean <- sum
-makenet <- function(dat_tract, var_name, legend_name, sum_or_mean){
+# dat_tract <- tracts19; var_name <- "total_pop"; sum_or_mean <- sum
+makenet <- function(dat_tract, var_name, sum_or_mean){
   
   net_tract <- dat_tract %>% 
     .[philly,] %>% 
     dplyr::select(matches(var_name)) %>% 
-    mutate(Legend = legend_name) %>% 
+    mutate(Legend = var_name) %>% 
     st_join(fishnet, join=st_within) %>%
     st_drop_geometry() %>%
     group_by(uniqueID, Legend) %>%
@@ -437,33 +381,26 @@ makenet <- function(dat_tract, var_name, legend_name, sum_or_mean){
   
 var_names <- names(tracts19)[3:14]
 
-dat_tracts <- paste0("tracts",13:19)
-
 # for loop to create fish nets for all ACS variables for all years
-for (i in 1:length(dat_tracts)) {
-  dat_tract <- get(dat_tracts[i])
-  
-  for (j in 1:length(var_names)){
+for (i in 1:length(var_names)){
     # select year, variable, and legend name
-    yr <- i+12
-    var_name <- var_names[j]
-    legend_name <- paste(var_name,yr)
+    var_name <- var_names[i]
     
-    if (j %in% c(2:4,18)){
+    if (i %in% c(2:4,18)){
       sum_or_mean <- mean
     } else {
       sum_or_mean <- sum
     }
     
     # run function to make fishnet
-    net_tract <- makenet(dat_tract,var_name,legend_name,sum_or_mean)
+    net_tract <- makenet(tracts19,var_name,sum_or_mean)
     
     # save as individual fishnet, uncomment if neededd
     # net_tract_name <- paste0("net_",var_name,yr)
     # assign(net_tract_name, net_tract)
     
     # save all variables into one big net
-    if (i == 1 & j == 1) {
+    if (i == 1) {
       census_net <- net_tract %>% 
         st_drop_geometry()
     } else {
@@ -473,7 +410,6 @@ for (i in 1:length(dat_tracts)) {
       census_net <- left_join(census_net, net_tract_tojoin, by = "uniqueID")
     }
   }
-}
 
 ```
 
@@ -610,15 +546,15 @@ all_net <- left_join(permit_net_allyrs, census_net, by = "uniqueID") %>%
 # making this moreso to see which would actually be good predictors
 var_for_model <- c("uniqueID","cvID","count_permits19","count_permits18","count_permits17","count_permits16",
                    "count_permits15","BuildingConstruction2019","IllegalDumping2019","DangerousSidewalk2019",
-                   "RubbishRecyclableMaterialCollection2019","vehicles_avail 19","med_rent 19","renter_occ 19",
-                   "VacantHouseorCommercial2019","total_pop 19","samehouse1yr_metro 19","StreetTrees2019",
-                   "children 19","parksNrec19.dist")
+                   "RubbishRecyclableMaterialCollection2019","vehicles_avail","med_rent","renter_occ",
+                   "VacantHouseorCommercial2019","total_pop","samehouse1yr_metro","StreetTrees2019",
+                   "children","parksNrec19.dist")
 
 all_net19 <- all_net %>% 
   dplyr::select(all_of(var_for_model))
 
 # only keep years for count_permit columns
-names(all_net19) <- c(str_replace_all(var_for_model, c(" 19" = "","2019" = "","19." = ".")), "geometry")
+names(all_net19) <- c(str_replace_all(var_for_model, c("2019" = "","19." = ".")), "geometry")
 
 for_cormat19 <- all_net19 %>% 
   st_drop_geometry() %>% 
@@ -651,7 +587,24 @@ Since the outcome we are interested in is a count or sum of vandalism incidents,
 ```{r poisson}
 all_net19 %>% ggplot(aes(x = count_permits19)) +
   geom_histogram(bins = 66, fill = viridis::cividis(1)) +
-  theme_minimal() +
+  theme(text = element_text( color = "black"),
+    plot.title = element_text(size = 14, colour = "black"), 
+    plot.subtitle = element_text(face="italic"),
+    plot.caption = element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),
+    panel.grid.major = element_line("grey80", size = 0.1),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2),
+    strip.background = element_rect(fill = "grey80", color = "white"),
+    strip.text = element_text(size=12),
+    axis.title = element_text(size=12),
+    axis.text = element_text(size=10),
+    plot.background = element_blank(),
+    legend.background = element_blank(),
+    legend.title = element_text(colour = "black", face = "italic"),
+    legend.text = element_text(colour = "black", face = "italic"),
+    strip.text.x = element_text(size = 14)) +
   labs(title = "Permit Distribution",
        x = "Count of New Construction Permits", y = "Count",
        caption = "Figure x.")
@@ -788,17 +741,7 @@ ggplot(correlation.long %>%
 
 ```
 
-[description of figure 7]
 
-#### Figure 7, Distribution of Vandalism count
-```{r fig7/hist}
-final_net %>% ggplot(aes(x = count_permits19)) +
-  geom_histogram(bins = 66, fill = viridis::cividis(1)) +
-  theme_minimal() +
-  labs(title = "Permit Distribution",
-       x = "Count of New Construction Permits", y = "Count",
-       caption = "Figure x.")
-```
 
 ```{r models, results='hide'}
 # just risk factors
@@ -1057,161 +1000,6 @@ reg.summary %>%
   kable(caption = "Table 2. Mean Error by Neighborhood Income Context") %>%
   kable_styling("striped", full_width = F) %>% 
   kable_classic(html_font = "Cambria")
-
-```
-
-### Kernel Density and Future Predictions
-
-Finally, I examined the kernel density of 2021 vandalism counts in Philadelphia and tested whether this model generalizes to the vandalism incident report patterns of 2022. The risk categories, from 1st in purple to 5th in yellow are ordered from least to most risk of vandalism.
-
-[description of figure 10]
-
-#### Figure 10. Comparison of Kernel Density and Risk Predictions
-```{r fig10/kernel density map, results='hide', fig.width=10, fig.height=10}
-# kernel density
-vand_ppp <- as.ppp(st_coordinates(vandalism), W = st_bbox(final_net))
-vand_KD.1000 <- spatstat.explore::density.ppp(vand_ppp, 1000)
-vand_KD.1500 <- spatstat.explore::density.ppp(vand_ppp, 1500)
-vand_KD.2000 <- spatstat.explore::density.ppp(vand_ppp, 2000)
-vand_KD.df <- rbind(
-  mutate(data.frame(rasterToPoints(mask(raster(vand_KD.1000), as(nhoods, 'Spatial')))), Legend = "1000 Ft."),
-  mutate(data.frame(rasterToPoints(mask(raster(vand_KD.1500), as(nhoods, 'Spatial')))), Legend = "1500 Ft."),
-  mutate(data.frame(rasterToPoints(mask(raster(vand_KD.2000), as(nhoods, 'Spatial')))), Legend = "2000 Ft.")) 
-
-vand_KD.df$Legend <- factor(vand_KD.df$Legend, levels = c("1000 Ft.", "1500 Ft.", "2000 Ft."))
-
-# ggplot(data=vand_KD.df, aes(x=x, y=y)) +
-#   geom_raster(aes(fill=layer)) + 
-#   facet_wrap(~Legend) +
-#   coord_sf(crs=st_crs(final_net)) + 
-#   scale_fill_viridis(name="Density") +
-#   labs(title = "Kernel density with 3 different search radii") +
-#   mapTheme(title_size = 14)
-
-
-# as.data.frame(vand_KD.1000) %>%
-#   st_as_sf(coords = c("x", "y"), crs = st_crs(final_net)) %>%
-#   aggregate(., final_net, mean) %>%
-#    ggplot() +
-#      geom_sf(aes(fill=value)) +
-#      geom_sf(data = sample_n(vandalism, 1500), size = .5) +
-#      scale_fill_viridis(name = "Density") +
-#      labs(title = "Kernel density of 2021 Vandalism Incidents") +
-#      mapTheme(title_size = 14)
-
-
-# download data from 2022
-# incidents22 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_22/incidents_part1_part2.shp") %>% 
-#   st_transform('ESRI:102728') %>% rename(Legend = text_gener)
-# 
-
-carto_url = "https://phl.carto.com/api/v2/sql"
-
-# Crime incidents
-table_name = "incidents_part1_part2"
-
-# query
-where2 = "dispatch_date >= '2022-01-01' AND dispatch_date < '2023-01-01' AND text_general_code IN ('DRIVING UNDER THE INFLUENCE','Theft from Vehicle','Thefts','Disorderly Conduct','Public Drunkenness', 'Arson', 'Vandalism/Criminal Mischief')"
-
-query2 = paste("SELECT *",
-              "FROM", table_name,
-              "WHERE", where)
-
-incidents22 = rphl::get_carto(query2, format = "csv", base_url = carto_url, stringsAsFactors = F)%>%
-   rename(Legend = text_general_code)
-incidents22 <- incidents22 %>%
-   filter(!is.na(point_x) & !is.na(point_y)) %>%
-   st_as_sf(coords = c("point_x","point_y"),crs=4326) %>%
-     st_transform('ESRI:102728') %>%
-   dplyr::select(Legend, geometry)
-
-
-
-
-# filter to only keep vandalism incidents
-vandalism22 <- incidents22 %>% filter(Legend == "Vandalism/Criminal Mischief") %>% 
-  .[fishnet,]
-
-
-# from lab
-vand_KDE_sum <- as.data.frame(vand_KD.1000) %>%
-  st_as_sf(coords = c("x", "y"), crs = st_crs(final_net)) %>%
-  aggregate(., final_net, mean) 
-kde_breaks <- classIntervals(vand_KDE_sum$value, 
-                             n = 5, "fisher")
-vand_KDE_sf <- vand_KDE_sum %>%
-  mutate(label = "Kernel Density",
-         Risk_Category = classInt::findCols(kde_breaks),
-         Risk_Category = case_when(
-           Risk_Category == 5 ~ "5th",
-           Risk_Category == 4 ~ "4th",
-           Risk_Category == 3 ~ "3rd",
-           Risk_Category == 2 ~ "2nd",
-           Risk_Category == 1 ~ "1st")) %>%
-  cbind(
-    aggregate(
-      dplyr::select(vandalism22) %>% mutate(vandCount = 1), ., sum) %>%
-    mutate(vandCount = replace_na(vandCount, 0))) %>%
-  dplyr::select(label, Risk_Category, vandCount)
-
-
-ml_breaks <- classIntervals(reg.spatialCV$Prediction, 
-                             n = 5, "fisher")
-vand_risk_sf <-
-  reg.spatialCV %>%
-  mutate(label = "Risk Predictions",
-         Risk_Category =classInt::findCols(ml_breaks),
-         Risk_Category = case_when(
-           Risk_Category == 5 ~ "5th",
-           Risk_Category == 4 ~ "4th",
-           Risk_Category == 3 ~ "3rd",
-           Risk_Category == 2 ~ "2nd",
-           Risk_Category == 1 ~ "1st")) %>%
-  cbind(
-    aggregate(
-      dplyr::select(vandalism22) %>% mutate(vandCount = 1), ., sum) %>%
-      mutate(vandCount = replace_na(vandCount, 0))) %>%
-  dplyr::select(label,Risk_Category, vandCount)
-
-
-rbind(vand_KDE_sf, vand_risk_sf) %>%
-  na.omit() %>%
-  gather(Variable, Value, -label, -Risk_Category, -geometry) %>%
-  ggplot() +
-    geom_sf(aes(fill = Risk_Category), colour = NA) +
-    geom_sf(data = sample_n(vandalism22, 3000), size = .25, colour = "black") +
-    facet_wrap(~label, ) +
-    scale_fill_viridis(discrete = TRUE) +
-    labs(title="Comparison of Kernel Density and Risk Predictions",
-         subtitle="2021 Vandalism; 2022 Vandalism risk predictions",
-         caption = "Figure 10.") +
-    theme(legend.position="bottom") +
-    mapTheme(title_size = 14)
-
-```
-
-[description of figure 11]
-
-#### Figure 11.
-```{r fig11/bar comparison}
-rbind(vand_KDE_sf, vand_risk_sf) %>%
-  st_drop_geometry() %>%
-  na.omit() %>%
-  gather(Variable, Value, -label, -Risk_Category) %>%
-  group_by(label, Risk_Category) %>%
-  summarize(countVand = sum(Value)) %>%
-  ungroup() %>%
-  group_by(label) %>%
-  mutate(Pcnt_of_test_set_crimes = countVand / sum(countVand)) %>%
-    ggplot(aes(Risk_Category,Pcnt_of_test_set_crimes)) +
-      geom_bar(aes(fill=label), position="dodge", stat="identity") +
-      scale_fill_viridis(discrete = TRUE, name = "Model") +
-      labs(title = "Risk prediction vs. Kernel density, 2022 Vandalism Incidents",
-           y = "% of Test Set Vandalism Incidents (per model)",
-           x = "Risk Category",
-           caption = "Figure 11.") +
-  theme_bw() +
-      theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
 
 ```
 
