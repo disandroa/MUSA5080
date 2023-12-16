@@ -187,15 +187,20 @@ reports311 <- reports311 %>%
     Legend = "311") %>% 
   dplyr::select(Legend, type, geometry, Year)
 
+```
+
+```{r fig1 city council districts}
 # plot city council districts
 ggplot() +
   geom_sf(data=city_council, aes(fill=DISTRICT)) +
   scale_fill_viridis(discrete = T) +
   labs(fill = "City Council District",
-       title = "City Council Districts Within Philadelphia") +
+       title = "City Council Districts Within Philadelphia",
+       caption = "Figure 1.") +
   mapTheme()
   
 ```
+
 
 Development patterns may be spread over space, such that it forms a smooth 'mosaic' across the city of Philadelphia. Alternatively, it is possible that several permits may be clustered together, either because they were all submitted as part of the same construction project (ie, submitting an electrical permit and roofing permit for the same property) or there were several units being worked in tandem. To better understand whether Philadelphia is experiencing a 'mosaic' of development or if development has been clustered into particular areas, a fishnet was established for grid cells of 500 meter by 500 meters across the city. The 500 meter scale (1/3rd mile) allows for a fluid understanding of development patterns at the block scale. 
 
@@ -204,9 +209,9 @@ Figure 1 below shows the number of permits granted for each fishnet square in 20
 
 It is worthwhile to note that while there are a number of areas with extensive permit counts and development pressures, so too are there a significant number of fishnet cells in the city that did not experience much  - if any - development. These low-no development areas, from the perspective of new construction, could have an outside influence on the model with impacts on its accuracy in areas experiecing higher levels of development. This was factored into the model through the use of a Poisson distribution, described in greater detail below. 
 
-## Figures 1 - 6. Permit Count on Fishnet by Year
+## Figures 2. Permit Count on Fishnet by Year
 
-```{r fig2/fishnet outcome}
+```{r fig2 fishnet outcome}
 # our CRS is in feet, but want to make fishnet a 500m x 500m
 cell_size <- 500 * 3.28084
 
@@ -329,7 +334,7 @@ permit_count_map <- ggplot(data = permit_net_formap) +
   scale_fill_viridis() +
   facet_wrap(~count_permits) +
   labs(title = "Count of New Construction Permits for the fishnet",
-       caption = "Figure 1.") +
+       caption = "Figure 2.") +
   mapTheme(title_size = 14) + theme(legend.position="bottom")
 
 permit_count_map
@@ -542,7 +547,7 @@ all_net <- left_join(permit_net_allyrs, census_net, by = "uniqueID") %>%
 
 #### Figure 3. Correlation Matrix of all possible risk factors
 
-```{r fig3/correlation matrix}
+```{r fig3 correlation matrix}
 # making this moreso to see which would actually be good predictors
 var_for_model <- c("uniqueID","cvID","count_permits19","count_permits18","count_permits17","count_permits16",
                    "count_permits15","BuildingConstruction2019","IllegalDumping2019","DangerousSidewalk2019",
@@ -569,7 +574,7 @@ ggcorrplot(
   digits = 4,
   lab = T, lab_size = 2) +  
   labs(title = "Correlation Matrix for 2019 fishnet",
-       caption = "Figure x.") 
+       caption = "Figure 3.") 
 
 ```
 
@@ -584,7 +589,7 @@ We also added some features that explain the spatial process of permit issuance 
 Since the outcome we are interested in is a count of permits issued in different regions of Philadelphia, we use a Poisson regression model. We created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process.
 =======
 Since the outcome we are interested in is a count or sum of vandalism incidents, I use a Poisson regression model to estimate the outcome. I created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process (I ultimately only kept the model with both risk factors and spatial process).
-```{r poisson}
+```{r fig4 poisson}
 all_net19 %>% ggplot(aes(x = count_permits19)) +
   geom_histogram(bins = 66, fill = viridis::cividis(1)) +
   theme(text = element_text( color = "black"),
@@ -607,7 +612,7 @@ all_net19 %>% ggplot(aes(x = count_permits19)) +
     strip.text.x = element_text(size = 14)) +
   labs(title = "Permit Distribution",
        x = "Count of New Construction Permits", y = "Count",
-       caption = "Figure x.")
+       caption = "Figure 4.")
 ```
 >>>>>>> Stashed changes
 
@@ -630,9 +635,9 @@ The most important validity measure of a geospatial risk prediction model is the
 
 [description of figure 4]
 
-#### Figure 4. Predictors in final model
+#### Figure 5. Predictors in final model
 
-```{r fig4/small mult map, fig.height=18}
+```{r fig5 small mult map, fig.height=18}
 # add neighborhood names
 allnet19_formodel <- all_net19 %>% 
   st_centroid() %>%
@@ -655,13 +660,13 @@ for (i in vars) {
       mapTheme(title_size = 14) + theme(legend.position="bottom")
   }
 
-do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure x."))
+do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure 5."))
 ```
 
-[description of figure 5]
+[description of figure 6]
 
-#### Figure 5. Adding indicators of significant spatial processes
-```{r fig 5/small mult map local morans i, fig.height=10}
+#### Figure 6. Adding indicators of significant spatial processes
+```{r fig 6 small mult map local morans i, fig.height=10}
 final_net.nb <- poly2nb(as_Spatial(allnet19_formodel), queen=TRUE)
 final_net.weights <- nb2listw(final_net.nb, style="W", zero.policy=TRUE) # turn neighborhood weights into list of weights
 
@@ -692,7 +697,7 @@ for(i in vars){
 }
 
 do.call(grid.arrange,c(varList, ncol = 2, top = "Local Moran's I Statistics for Permit Count in Philadelphia", 
-                       bottom = "Figure x."))
+                       bottom = "Figure 6."))
 
 final_net <-
   allnet19_formodel %>% 
@@ -708,8 +713,8 @@ final_net <-
 
 [description of figure 6] 
 
-#### Figure 6. Scatterplots of Predictors
-```{r fig6/small mult scatter, fig.height=21}
+#### Figure 7. Scatterplots of Predictors
+```{r fig7 small mult scatter, fig.height=21}
 correlation.long <-
   st_drop_geometry(final_net) %>%
   dplyr::select(-uniqueID, -cvID, -mapname) %>%
@@ -736,7 +741,7 @@ ggplot(correlation.long %>%
   geom_smooth(method = "lm", se = FALSE, colour = "black") +
   facet_wrap(~variable, ncol = 3, scales = "free") +
   labs(title = "Permit count as a function of predictors",
-       caption = "Figure x.") +
+       caption = "Figure 7.") +
   plotTheme(title_size = 14)
 
 ```
@@ -848,7 +853,7 @@ reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 6.158161
 [description of figure 8 & 9]
 
 #### Figure 8. Map of Model Errors
-```{r fig8/small mult map errors}
+```{r fig8 small mult map errors}
 reg.summary <- rbind(
   mutate(reg.CV,
          Error = Prediction - count_permits19,
@@ -896,13 +901,13 @@ error_by_reg_and_fold %>%
   facet_wrap(~Regression) +
   scale_fill_viridis() +
   labs(title = "Errors by Cross Validation method",
-       caption = "Figure x.") +
+       caption = "Figure 8.") +
   mapTheme(title_size = 14) + theme(legend.position="bottom")
 
 ```
 
 #### Figure 9. Bar Plots of Error
-```{r fig9/bar plots of MAE}
+```{r fig9 bar plots of MAE}
 # adjust plotTheme to fit titles
 plotTheme <- function(base_size = 12, title_size = 16) {
   theme(
@@ -934,7 +939,7 @@ error_by_reg_and_fold %>%
   geom_vline(xintercept = 0) + scale_x_continuous(breaks = seq(0, 450, by = 50)) + 
   labs(title="Distribution of MAE", subtitle = "k-fold cross validation vs. LOGO-CV",
        x="Mean Absolute Error",     y="Count",
-       caption = "Figure x.") +
+       caption = "Figure 9.") +
   plotTheme(title_size = 14) + theme(legend.position="bottom")
 
 ```
