@@ -202,7 +202,7 @@ ggplot() +
 ```
 
 
-Development patterns may be spread over space, such that it forms a smooth 'mosaic' across the city of Philadelphia. Alternatively, it is possible that several permits may be clustered together, either because they were all submitted as part of the same construction project (ie, submitting an electrical permit and roofing permit for the same property) or there were several units being worked in tandem. To better understand whether Philadelphia is experiencing a 'mosaic' of development or if development has been clustered into particular areas, a fishnet was established for grid cells of 500 meter by 500 meters across the city. The 500 meter scale (1/3rd mile) allows for a fluid understanding of development patterns at the block scale. 
+Development patterns may be spread over space, such that they forms a smooth 'mosaic' across the city of Philadelphia. Alternatively, it is possible that several permits may be clustered together, either because they were all submitted as part of the same construction project (ie, submitting an electrical permit and roofing permit for the same property) or there were several units being worked in tandem. To better understand whether Philadelphia is experiencing a 'mosaic' of development or if development has been clustered into particular areas, a fishnet was established for grid cells of 500 meter by 500 meters across the city. The 500 meter scale (1/3rd mile) allows for a fluid understanding of development patterns at the block scale. 
 
 
 Figure 1 below shows the number of permits granted for each fishnet square in 2014, followed by Figure 2 showing the number of permits for each fishnet square in 2015, and so on until Figure 6 demonstrating the number of permits granted for each fishnet square in 2019. As is visible through the maps, trends and patterns of development shift across the city, such that in 2014 development centered around the Center City Neighborhood, while moving towards 2019 - when record number of permits were granted for the time period in focus - development was centered in Center City as well as North Philadelphia. 
@@ -346,10 +346,15 @@ There are a number of different methods to account for neighborhood change and t
 - Total Population: as population increases in a census tract, so too will housing pressures which can in turn lead to new construction of housing.
 - Median HH Income: as median household income increases, it is likely that the cost of amenities in the area, including housing, groceries, etc. will increase as well. 
 - Median Rent: a clear marker of development pressure, rent prices will increase as a neighborhood becomes more expensive. It can also be used to ask 'does higher rent in an area indcue more development' as developers seek to capitalize on higher prices?
+<<<<<<< Updated upstream
 - Staying in the same house for 1 year: a marker of how many long-term residents are around, this can be used to assess the relationships that development has with the transition out of longer term residents. 
 - Renter Occupied (total)
-- Number of Vehicles available
-- Number of Children
+=======
+- Rent (as %age of Income): a markeer of affordabiliyt, it is possible that by building in rent-burdened communities 
+- Total Metro Mobility
+- Staying in the same house for 1 year: a marker of how many long-term residents are around, this can be used to assess the relationships that development has with the transition out of longer term residents.
+- Owner Occupied (total): Owner occupied houses may be linked with 
+- Renter Occupied (total): renter-occupied housing maybe indicative of an inability to purchase housing, particularly if median home prices are greater than they would be on average. In renter-occupied housing, it is possible that there would be a greater number of work permits due to the need to upkeep the housing from greater turnover. 
 
 The model powering GENTRISK requires that all of the variables are gathered in the same format and then compared across time. To  facilitatate this process, the PHL GEO Inc. team used the following code to gather all of the variables and put them into a similar format. These variables can then provide an understnaidng of how neighborhoods are changing over time, followed by an investigation of what could be driving those changes; ie, if development is happening in a neighborhood, what are the factors that drive that development?
 
@@ -361,6 +366,9 @@ The model powering GENTRISK requires that all of the variables are gathered in t
 - Rubbish / Recyclable Material Collection complaints
 - Street Tree maintenance complaints
 - And the distance between the centroid of each grid cell and the nearest 3 instances of the complaints listed above. 
+=======
+- Percent White
+>>>>>>> Stashed changes
 
 ```{r create census_net}
 # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (var_name), aggregating with function (sum_or_mean)
@@ -418,6 +426,20 @@ for (i in 1:length(var_names)){
 
 ```
 
+## Other Factors
+In addition to census information, the GENTRSIK takes into account other factors and amenities which could increase the likelihood of development and subsequent pressures. The incorporation of these factors builds on a geospatial risk model where the likelihood that that an increase in the following factors would correspond to an increase in the number of permits granted. A resident could use this to ask the question "given certain characteristics about my neighborhood, what is the likelihood, and the amount, of permit granting that I can expect to see?" 
+
+A primary challenge of using data in these models is that it is available across multiple scales and times; to counteract this challenge the GENTRISK model focuses on the distribution of the following factors from 2013 to 2018, and then uses this information to validate its results in 2019. Information was gathered from 311 calls sent to the city, particularly as they relate to new construction impacts. As 311 calls are openly accessible to all, they represent data that is much more flexible and inclusive than data solely collected by the city. 
+
+Similar to permits, 
+
+311 Variables to include are: 
+- Dangerous Sidewalk complaints
+- Illegal dumping complaints
+- Parks and Recreation Safety and Maintenance complaints
+- Rubbish / Recyclable Material Collection complaints
+- Street Tree maintenance complaints
+- And the distance between those variables to eachother. 
 
 ```{r create 311_net}
 long_15 <- reports311 %>% 
@@ -531,10 +553,6 @@ vars311_net <- vars311_net %>%
 ```
 
 
-### Feature Selection
-
-
-All census variables were pulled at the block group level, which is a smaller scale than our fishnet. There is no perfect way to join block-group-level census data to our fishnet, so our approach was to take the centroid of the block groups and aggregated the variables (by either taking the sum or average) of the block groups whose centroids landed in a fishnet grid cell (idk how to phrase this well so feel free to rephrase!). As a result, some fishnet cells that cover residential areas of Philadelphia may have a value of 0 for variables like "Total Population" since no block group centroid was within the bounds of that cell. 
 
 
 ```{r all_net}
@@ -543,9 +561,47 @@ all_net <- left_join(permit_net_allyrs, census_net, by = "uniqueID") %>%
   left_join(vars311_net %>% st_drop_geometry(), by = "uniqueID") %>% 
   st_as_sf()
 
+
+# make a subset of the net with variables we're actually interested in putting in the model
+# add neighborhood names to data
+# subset_net <- all_net %>%
+#   st_centroid() %>%
+#   st_join(dplyr::select(nhoods, mapname)) %>%
+#   st_drop_geometry() %>%
+#   left_join(dplyr::select(all_net, geometry, uniqueID), by = "uniqueID") %>%
+#   st_sf() %>%
+#   na.omit()
+
+ggplot()+
+  geom_sf(data=all_net,aes(fill=all_net$ all_net$`Total Population 14`))+
+  labs(title = "Total Population in 2014", fill = "Total Population in 2014")
+ggplot()+
+  geom_sf(data=all_net,aes(fill=all_net$`Total Population 15`))+
+  labs(title = "Total Population in 2015", fill = "Total Population in 2015")
+ggplot()+
+  geom_sf(data=all_net,aes(fill=all_net$`Total Population 16`))+
+  labs(title = "Total Population in 2016", fill = "Total Population in 2016")
+ggplot()+
+  geom_sf(data=all_net,aes(fill=all_net$`Total Population 17`))+
+  labs(title = "Total Population in 2017", fill = "Total Population in 2017")
+ggplot()+
+  geom_sf(data=all_net,aes(fill=all_net$`Total Population 18`))+
+  labs(title = "Total Population in 2018", fill = "Total Population in 2018")
+ggplot()+
+  geom_sf(data=all_net,aes(fill=all_net$`Total Population 19`))+
+  labs(title = "Total Population in 2019", fill = "Total Population in 2019")
+
 ```
 
-#### Figure 3. Correlation Matrix of all possible risk factors
+
+
+
+# Feature Selection
+
+All census variables were pulled at the block group level, which is a smaller scale than the 500x500 meter fishnet used in this analysis. As there is no perfect way to join block-group-level census data to our fishnet, we joined the most center point of each block group to the fishnet, and aggregated data where necessary. As an example, if a fishnet encompassed census blocks A, B, and C, with respective populations of 100,150, and 125, then the total fishnet population would be 375. This enables a smooth comparison across the surface of Philadelphia. In some cases where the centroid of the block group falls outside the boundary of the fishnet square, the resulting fishnet square population would be 0. While this introduces a certain level of error into the calculations, the error can be calculated and corrective actions and more informed decisions can be made. 
+## Figure 7. Correlation Matrix of all possible risk factors
+
+With all of the variables loaded into 
 
 ```{r fig3 correlation matrix}
 # making this moreso to see which would actually be good predictors
@@ -572,9 +628,7 @@ ggcorrplot(
   type="lower",
   insig = "blank",
   digits = 4,
-  lab = T, lab_size = 2) +  
-  labs(title = "Correlation Matrix for 2019 fishnet",
-       caption = "Figure 3.") 
+  lab = T, lab_size = 2)
 
 ```
 
