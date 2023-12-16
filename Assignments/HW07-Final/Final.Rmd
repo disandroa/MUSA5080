@@ -140,9 +140,6 @@ tracts19 <-
          vehicles_avail = B25044_001E,
   ) %>%
   mutate(children = B09002_001E + B11004_001E,
-         pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
-         RaceContext = ifelse(pct_white > 0.5, "Majority White", 
-                              ifelse(total_pop != 0 , "Majority non-White", NA)),
          year = "2019") %>% 
   dplyr::select(!matches("^B|white_pop")) %>% 
   st_centroid()
@@ -211,7 +208,7 @@ It is worthwhile to note that while there are a number of areas with extensive p
 
 ## Figures 2. Permit Count on Fishnet by Year
 
-```{r fig2 fishnet outcome}
+```{r fig2 fishnet outcome, fig.height=6, fig.width=10}
 # our CRS is in feet, but want to make fishnet a 500m x 500m
 cell_size <- 500 * 3.28084
 
@@ -343,6 +340,7 @@ permit_count_map
 
 ## Census Information 
 There are a number of different methods to account for neighborhood change and the impacts of development, all of which are powered. The GENTRISK takes into account several census features, which are described below (along with their reasoning) 
+
 - Total Population: as population increases in a census tract, so too will housing pressures which can in turn lead to new construction of housing.
 - Median HH Income: as median household income increases, it is likely that the cost of amenities in the area, including housing, groceries, etc. will increase as well. 
 - Median Rent: a clear marker of development pressure, rent prices will increase as a neighborhood becomes more expensive. It can also be used to ask 'does higher rent in an area indcue more development' as developers seek to capitalize on higher prices?
@@ -392,7 +390,7 @@ makenet <- function(dat_tract, var_name, sum_or_mean){
   return(net_tract)
 }
   
-var_names <- names(tracts19)[3:14]
+var_names <- names(tracts19)[3:13]
 
 # for loop to create fish nets for all ACS variables for all years
 for (i in 1:length(var_names)){
@@ -603,7 +601,7 @@ All census variables were pulled at the block group level, which is a smaller sc
 
 With all of the variables loaded into 
 
-```{r fig3 correlation matrix}
+```{r fig3 correlation matrix, fig.height=6, fig.width=10}
 # making this moreso to see which would actually be good predictors
 var_for_model <- c("uniqueID","cvID","count_permits19","count_permits18","count_permits17","count_permits16",
                    "count_permits15","BuildingConstruction2019","IllegalDumping2019","DangerousSidewalk2019",
@@ -639,10 +637,8 @@ We also added some features that explain the spatial process of permit issuance 
 
 ### Models
 
-<<<<<<< Updated upstream
-Since the outcome we are interested in is a count of permits issued in different regions of Philadelphia, we use a Poisson regression model. We created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process.
-=======
 Since the outcome we are interested in is a count or sum of vandalism incidents, I use a Poisson regression model to estimate the outcome. I created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process (I ultimately only kept the model with both risk factors and spatial process).
+
 ```{r fig4 poisson}
 all_net19 %>% ggplot(aes(x = count_permits19)) +
   geom_histogram(bins = 66, fill = viridis::cividis(1)) +
@@ -668,7 +664,6 @@ all_net19 %>% ggplot(aes(x = count_permits19)) +
        x = "Count of New Construction Permits", y = "Count",
        caption = "Figure 4.")
 ```
->>>>>>> Stashed changes
 
 ### Validation
 
@@ -691,7 +686,7 @@ The most important validity measure of a geospatial risk prediction model is the
 
 #### Figure 5. Predictors in final model
 
-```{r fig5 small mult map, fig.height=18}
+```{r fig5 small mult map, fig.height=18, fig.width=10}
 # add neighborhood names
 allnet19_formodel <- all_net19 %>% 
   st_centroid() %>%
@@ -711,7 +706,20 @@ for (i in vars) {
       geom_sf(data = filter(vars_net.long, variable == i),aes(fill = value), colour=NA) +
       scale_fill_viridis(name = "") +
       labs(title = i) +
-      mapTheme(title_size = 14) + theme(legend.position="bottom")
+      theme(text = element_text( color = "black"),
+            plot.title = element_text(size = 14,colour = "black"),
+            plot.subtitle=element_text(face="italic"),
+            plot.caption=element_text(hjust=0),
+            axis.ticks = element_blank(),
+            panel.background = element_blank(),axis.title = element_blank(),
+            axis.text = element_blank(),
+            axis.title.x = element_blank(),
+            axis.title.y = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.border = element_rect(colour = "black", fill=NA, size=2),
+            strip.text.x = element_text(size = 7),
+            legend.position = "bottom",
+            legend.text = element_text(size = 5))
   }
 
 do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure 5."))
@@ -768,7 +776,7 @@ final_net <-
 [description of figure 6] 
 
 #### Figure 7. Scatterplots of Predictors
-```{r fig7 small mult scatter, fig.height=21}
+```{r fig7 small mult scatter, fig.height=21, fig.width=10}
 correlation.long <-
   st_drop_geometry(final_net) %>%
   dplyr::select(-uniqueID, -cvID, -mapname) %>%
@@ -796,7 +804,24 @@ ggplot(correlation.long %>%
   facet_wrap(~variable, ncol = 3, scales = "free") +
   labs(title = "Permit count as a function of predictors",
        caption = "Figure 7.") +
-  plotTheme(title_size = 14)
+  theme(text = element_text( color = "black"),
+        plot.title = element_text(size = 14, colour = "black"), 
+        plot.subtitle = element_text(face="italic"),
+        plot.caption = element_text(hjust=0),
+        axis.ticks = element_blank(),
+        panel.background = element_blank(),
+        panel.grid.major = element_line("grey80", size = 0.1),
+        panel.grid.minor = element_blank(),
+        panel.border = element_rect(colour = "black", fill=NA, size=2),
+        strip.background = element_rect(fill = "grey80", color = "white"),
+        strip.text = element_text(size=12),
+        axis.title = element_text(size=12),
+        axis.text = element_text(size=10),
+        plot.background = element_blank(),
+        legend.background = element_blank(),
+        legend.title = element_text(colour = "black", face = "italic"),
+        legend.text = element_text(colour = "black", face = "italic"),
+        strip.text.x = element_text(size = 10))
 
 ```
 
@@ -907,7 +932,7 @@ reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 6.158161
 [description of figure 8 & 9]
 
 #### Figure 8. Map of Model Errors
-```{r fig8 small mult map errors}
+```{r fig8 small mult map errors, fig.height=8, fig.width=10}
 reg.summary <- rbind(
   mutate(reg.CV,
          Error = Prediction - count_permits19,
@@ -946,7 +971,7 @@ mapTheme <- function(base_size = 12, title_size = 16) {
     axis.title.y = element_blank(),
     panel.grid.minor = element_blank(),
     panel.border = element_rect(colour = "black", fill=NA, size=2),
-    strip.text.x = element_text(size = 10))
+    strip.text.x = element_text(size = 7))
 }
 
 error_by_reg_and_fold %>%
@@ -1025,19 +1050,30 @@ st_drop_geometry(error_by_reg_and_fold) %>%
 
 ### Racial Context
 
-In order to assess if the model generalizes to different neighborhood contexts, I specifically tested whether the model generalizes to a racial context. Using 2021 US Census data, I defined a neighborhood to be "Majority White" if over 50% of the population was White, and "Majority non-White" otherwise. 
+In order to assess if the model generalizes to different neighborhood contexts, we tested whether the model generalizes to a racial context. Using 2019 US Census data, I defined a neighborhood to be "Majority White" if over 50% of the population was White, and "Majority non-White" otherwise. 
 
 [description of table 2]
 
 #### Table 2. Racial Context
 ```{r table2/raw errors race2}
-RaceContext <- tracts19 %>% 
-  dplyr::select(GEOID,total_pop,RaceContext,geometry) %>% 
+RaceContext <- get_acs(geography = "block group", 
+                       variables = c("B01001_001E","B02001_002E"), 
+                       year = 2019, state = 42, 
+                       geometry = T, output = "wide") %>%
+  st_transform(crs = 2272) %>% 
+  dplyr::select(!matches("M$")) %>%
+  rename(total_pop = B01001_001E,
+         white_pop = B02001_002E) %>%
+  mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+         RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                              ifelse(total_pop != 0 , "Majority non-White", NA))) %>% 
+  dplyr::select(-c(NAME,total_pop,white_pop,pct_white)) %>% 
   .[nhoods,]
 
 reg.summary %>% 
+  filter(grepl("LOGO", Regression)) %>% 
   st_centroid() %>%
-  st_join(RaceContext %>% dplyr::select(RaceContext, geometry)) %>%
+  st_join(RaceContext) %>%
   na.omit() %>%
   st_drop_geometry() %>%
   group_by(Regression, RaceContext) %>%
@@ -1049,25 +1085,35 @@ reg.summary %>%
 
 ```
 
-#### Table 2. Income Context
+#### Table 3. Income Context
+
+Similarly, we tested the generalizability of our model in an income context.
 
 # need to work on this.
-```{r table2/raw errors race}
-# IncomeContext <- tracts22 %>% 
-#   dplyr::select(GEOID,total_pop,IncomeContext,geometry) %>% 
-#   .[nhoods,]
-# 
-# reg.summary %>% 
-#   st_centroid() %>%
-#   st_join(tracts22 %>% dplyr::select(IncomeContext, geometry)) %>%
-#   na.omit() %>%
-#   st_drop_geometry() %>%
-#   group_by(Regression, IncomeContext) %>%
-#   summarize(mean.Error = mean(Error, na.rm = T)) %>%
-#   spread(IncomeContext, mean.Error) %>%
-#   kable(caption = "Table 2. Mean Error by Neighborhood Income Context") %>%
-#   kable_styling("striped", full_width = F) %>% 
-#   kable_classic(html_font = "Cambria")
+```{r table3 raw errors race}
+IncomeContext <- get_acs(geography = "block group", 
+                       variables = c("B19013_001E"), 
+                       year = 2019, state = 42, 
+                       geometry = T, output = "wide") %>%
+  st_transform(crs = 2272) %>% 
+  dplyr::select(!matches("M$")) %>%
+  rename(med_hh_inc = B19013_001E) %>%
+  mutate(IncomeContext = ifelse(med_hh_inc > medHHinc2019, "Above Median Income", "Below Median Income")) %>% 
+  dplyr::select(-c(NAME,med_hh_inc))
+  .[nhoods,]
+
+reg.summary %>% 
+  filter(grepl("LOGO", Regression)) %>% 
+  st_centroid() %>%
+  st_join(IncomeContext) %>%
+  na.omit() %>%
+  st_drop_geometry() %>%
+  group_by(Regression, IncomeContext) %>%
+  summarize(mean.Error = mean(Error, na.rm = T)) %>%
+  spread(IncomeContext, mean.Error) %>%
+  kable(caption = "Table 3. Mean Error by Neighborhood Income Context") %>%
+  kable_styling("striped", full_width = F) %>% 
+  kable_classic(html_font = "Cambria")
 
 ```
 
