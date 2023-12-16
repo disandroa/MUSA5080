@@ -141,7 +141,7 @@ tracts19 <-
   ) %>%
   mutate(children = B09002_001E + B11004_001E,
          year = "2019") %>% 
-  dplyr::select(!matches("^B|white_pop")) %>% 
+  dplyr::select(!matches("^B|white_pop",ignore.case = F)) %>% 
   st_centroid()
 
 # philly neighborhood data
@@ -382,7 +382,7 @@ makenet <- function(dat_tract, var_name, sum_or_mean){
   return(net_tract)
 }
   
-var_names <- names(tracts19)[3:13]
+var_names <- names(tracts19)[3:14]
 
 # for loop to create fish nets for all ACS variables for all years
 for (i in 1:length(var_names)){
@@ -543,15 +543,15 @@ all_net <- left_join(permit_net_allyrs, census_net, by = "uniqueID") %>%
 
 ```
 
-#### Figure 3. Correlation Matrix of all possible risk factors
+#### Figure 3. Correlation Matrix of all Predictors
 
 ```{r fig3 correlation matrix, fig.height=6, fig.width=10}
 # making this moreso to see which would actually be good predictors
 var_for_model <- c("uniqueID","cvID","count_permits19","count_permits18","count_permits17","count_permits16",
                    "count_permits15","BuildingConstruction2019","IllegalDumping2019","DangerousSidewalk2019",
-                   "RubbishRecyclableMaterialCollection2019","vehicles_avail","med_rent","renter_occ",
-                   "VacantHouseorCommercial2019","total_pop","samehouse1yr_metro","StreetTrees2019",
-                   "children","parksNrec19.dist")
+                   "RubbishRecyclableMaterialCollection2019","StreetTrees2019","parksNrec19.dist",
+                   "VacantHouseorCommercial2019","vehicles_avail","med_rent","renter_occ","total_pop",
+                   "samehouse1yr_metro","bachelors25","children")
 
 all_net19 <- all_net %>% 
   dplyr::select(all_of(var_for_model))
@@ -733,10 +733,10 @@ correlation.cor <-
   group_by(variable) %>%
   summarize(correlation = cor(value, count_permits19, use = "complete.obs"))
  
-ordered_vars <- c("count_permits18","count_permits17","count_permits16","count_permits15","total_pop","children",
-                  "med_rent","renter_occ","samehouse1yr_metro","vehicles_avail","BuildingConstruction","IllegalDumping",
-                  "DangerousSidewalk","StreetTrees","RubbishRecyclableMaterialCollection","VacantHouseorCommercial",
-                  "parksNrec.dist","permitct.isSig","permitct.isSig.dist")
+ordered_vars <- c("count_permits18","count_permits17","count_permits16","count_permits15","total_pop","bachelors25",
+                  "children","med_rent","renter_occ","samehouse1yr_metro","vehicles_avail","BuildingConstruction",
+                  "IllegalDumping","DangerousSidewalk","StreetTrees","RubbishRecyclableMaterialCollection",
+                  "VacantHouseorCommercial","parksNrec.dist","permitct.isSig","permitct.isSig.dist")
 
 ggplot(correlation.long %>% 
          mutate(variable = factor(variable, levels = ordered_vars)), 
@@ -777,8 +777,8 @@ ggplot(correlation.long %>%
 # just risk factors
 reg.vars <- c("count_permits18","count_permits17","count_permits16","count_permits15","BuildingConstruction",
               "IllegalDumping","DangerousSidewalk","RubbishRecyclableMaterialCollection","vehicles_avail",
-              "med_rent","renter_occ","VacantHouseorCommercial","total_pop","samehouse1yr_metro","StreetTrees",
-              "children","parksNrec.dist") 
+              "med_rent","renter_occ","VacantHouseorCommercial","total_pop","samehouse1yr_metro","bachelors25",
+              "StreetTrees","children","parksNrec.dist") 
 
 # random k-fold CV
 reg.CV <- crossValidate(dataset = final_net,
@@ -789,7 +789,7 @@ reg.CV <- crossValidate(dataset = final_net,
   mutate(error = count_permits19 - Prediction)
 
 # MAE
-reg.MAE <- mean(abs(reg.CV$error)) # ~7.59063
+reg.MAE <- mean(abs(reg.CV$error)) # ~7.573239
 
 # with local Moran's I spatial process features
 reg.sp.vars <- c(reg.vars,"permitct.isSig","permitct.isSig.dist")
@@ -804,7 +804,7 @@ reg.spatialCV <- crossValidate(
   mutate(error = count_permits19 - Prediction)
 
 # MAE
-reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # ~5.589619
+reg.spatial.MAE <- mean(abs(reg.spatialCV$error)) # ~5.595413
 
 # LOGO-CV
 # needed to redefine crossValidate to solve the issue with a neighborhood of NA
@@ -853,7 +853,7 @@ reg.logoCV <- crossValidate(
   mutate(error = count_permits19 - Prediction)
 
 # MAE
-reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 8.290278
+reg.logo.MAE <- mean(abs(reg.logoCV$error)) # 8.273702
 
 # risk factors + spatial process
 reg.logo.spatialCV <- crossValidate(
@@ -865,7 +865,7 @@ reg.logo.spatialCV <- crossValidate(
   mutate(error = count_permits19 - Prediction)
 
 # MAE
-reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 6.158161
+reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 6.170643
 
 ```
 
@@ -931,11 +931,36 @@ error_by_reg_and_fold %>%
 
 ```
 
-#### Figure 9. Predicted vs Real 2019 Permit Count
+#### Figure 9. Real vs Predicted 2019 Permit Count
 
-Here, we show the predicted vs real counts of new construction permits in 2019 (see figure 9).
+Here, we show the real vs predicted counts of new construction permits in 2019 (see figure 9).
 
 ```{r fig 9 predicted vs real}
+reg.summary %>% 
+  filter(Regression == "Random k-fold CV: Predictors with Spatial Process") %>% 
+  dplyr::select(-c(cvID,error,Error)) %>% 
+  rename(`Real Permit Count` = count_permits19) %>% 
+  gather("counts","value",-geometry,-Regression) %>% 
+  ggplot() +
+  geom_sf(aes(fill = value)) +
+  scale_fill_viridis() +
+  facet_wrap(~counts) +
+  labs(title = "Real vs Predicted Counts of Permits (2019)",
+       caption = "Figure 9.") +
+  theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle=element_text(face="italic"),
+    plot.caption=element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2),
+    strip.text.x = element_text(size = 10),
+    legend.position = "bottom")
 
 ```
 
@@ -1045,7 +1070,7 @@ IncomeContext <- get_acs(geography = "block group",
   dplyr::select(!matches("M$")) %>%
   rename(med_hh_inc = B19013_001E) %>%
   mutate(IncomeContext = ifelse(med_hh_inc > medHHinc2019, "Above Median Income", "Below Median Income")) %>% 
-  dplyr::select(-c(NAME,med_hh_inc))
+  dplyr::select(-c(NAME,med_hh_inc)) %>% 
   .[nhoods,]
 
 reg.summary %>% 
