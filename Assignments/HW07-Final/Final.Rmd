@@ -906,8 +906,9 @@ error_by_reg_and_fold %>%
 
 ```
 
-#### Figure 9. Predicted vs Actual 2019 Permit Count
+#### Figure 9. Predicted vs Real 2019 Permit Count
 
+Here, we show the predicted vs real counts of new construction permits in 2019 (see figure 9).
 
 ```{r fig 9 predicted vs real}
 
@@ -998,21 +999,21 @@ reg.summary %>%
 
 # need to work on this.
 ```{r table2/raw errors race}
-IncomeContext <- tracts22 %>% 
-  dplyr::select(GEOID,total_pop,IncomeContext,geometry) %>% 
-  .[nhoods,]
-
-reg.summary %>% 
-  st_centroid() %>%
-  st_join(tracts22 %>% dplyr::select(IncomeContext, geometry)) %>%
-  na.omit() %>%
-  st_drop_geometry() %>%
-  group_by(Regression, IncomeContext) %>%
-  summarize(mean.Error = mean(Error, na.rm = T)) %>%
-  spread(IncomeContext, mean.Error) %>%
-  kable(caption = "Table 2. Mean Error by Neighborhood Income Context") %>%
-  kable_styling("striped", full_width = F) %>% 
-  kable_classic(html_font = "Cambria")
+# IncomeContext <- tracts22 %>% 
+#   dplyr::select(GEOID,total_pop,IncomeContext,geometry) %>% 
+#   .[nhoods,]
+# 
+# reg.summary %>% 
+#   st_centroid() %>%
+#   st_join(tracts22 %>% dplyr::select(IncomeContext, geometry)) %>%
+#   na.omit() %>%
+#   st_drop_geometry() %>%
+#   group_by(Regression, IncomeContext) %>%
+#   summarize(mean.Error = mean(Error, na.rm = T)) %>%
+#   spread(IncomeContext, mean.Error) %>%
+#   kable(caption = "Table 2. Mean Error by Neighborhood Income Context") %>%
+#   kable_styling("striped", full_width = F) %>% 
+#   kable_classic(html_font = "Cambria")
 
 ```
 
