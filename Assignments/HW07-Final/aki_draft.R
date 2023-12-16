@@ -535,6 +535,8 @@
 }
 
 
+
+
 # Adding census variables to fishnet
 {
   # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (legend_name), aggregating with function (sum_or_mean)
@@ -880,23 +882,6 @@
       group_by(variable) %>%
       summarize(correlation = cor(value, count_permits19, use = "complete.obs"))
     
-    # "buildingCon.dist"                    "BuildingConstruction"               
-    # [3] "children"                            "count_permits15"                    
-    # [5] "count_permits16"                     "count_permits17"                    
-    # [7] "count_permits18"                     "DangerousSidewalk"                  
-    # [9] "dangerSide.dist"                     "illegalDump.dist"                   
-    # [11] "IllegalDumping"                      "materialColl.dist"                  
-    # [13] "med_hh_inc"                          "med_rent"                           
-    # [15] "mobility_tot_metro"                  "owner_occ"                          
-    # [17] "ParksandRecSafetyandMaintenance"     "parksNrec.dist"                     
-    # [19] "pct_rent_hhinc"                      "pct_white"                          
-    # [21] "permitct.isSig"                      "permitct.isSig.dist"                
-    # [23] "private_vehicle_occ"                 "renter_occ"                         
-    # [25] "RubbishRecyclableMaterialCollection" "samehouse1yr_metro"                 
-    # [27] "StreetTrees"                         "streetTrees.dist"                   
-    # [29] "total_pop"                           "vacant.dist"                        
-    # [31] "VacantHouseorCommercial"             "vehicles_avail" 
-    
     # multiple correlation plots
     var_group1 <- c("count_permits18","count_permits17","count_permits16","count_permits15",
                     "total_pop","med_hh_inc","med_rent","pct_rent_hhinc",
@@ -1162,156 +1147,4 @@
       kable_classic(html_font = "Cambria")
   }
 }
-
-# generalizing over time
-{
-  # kernel density plot
-  {
-    # kernel density
-    vand_ppp <- as.ppp(st_coordinates(vandalism), W = st_bbox(final_net))
-    vand_KD.1000 <- spatstat.explore::density.ppp(vand_ppp, 1000)
-    vand_KD.1500 <- spatstat.explore::density.ppp(vand_ppp, 1500)
-    vand_KD.2000 <- spatstat.explore::density.ppp(vand_ppp, 2000)
-    vand_KD.df <- rbind(
-      mutate(data.frame(rasterToPoints(mask(raster(vand_KD.1000), as(nhoods, 'Spatial')))), Legend = "1000 Ft."),
-      mutate(data.frame(rasterToPoints(mask(raster(vand_KD.1500), as(nhoods, 'Spatial')))), Legend = "1500 Ft."),
-      mutate(data.frame(rasterToPoints(mask(raster(vand_KD.2000), as(nhoods, 'Spatial')))), Legend = "2000 Ft.")) 
-    
-    vand_KD.df$Legend <- factor(vand_KD.df$Legend, levels = c("1000 Ft.", "1500 Ft.", "2000 Ft."))
-    
-    # ggplot(data=vand_KD.df, aes(x=x, y=y)) +
-    #   geom_raster(aes(fill=layer)) + 
-    #   facet_wrap(~Legend) +
-    #   coord_sf(crs=st_crs(final_net)) + 
-    #   scale_fill_viridis(name="Density") +
-    #   labs(title = "Kernel density with 3 different search radii") +
-    #   mapTheme(title_size = 14)
-    
-    
-    # as.data.frame(vand_KD.1000) %>%
-    #   st_as_sf(coords = c("x", "y"), crs = st_crs(final_net)) %>%
-    #   aggregate(., final_net, mean) %>%
-    #    ggplot() +
-    #      geom_sf(aes(fill=value)) +
-    #      geom_sf(data = sample_n(vandalism, 1500), size = .5) +
-    #      scale_fill_viridis(name = "Density") +
-    #      labs(title = "Kernel density of 2021 Vandalism Incidents") +
-    #      mapTheme(title_size = 14)
-    
-    
-    # download data from 2022
-    # incidents22 <- st_read("~/Documents/MUSA5080/Assignments/HW04/incidents_22/incidents_part1_part2.shp") %>% 
-    #   st_transform('ESRI:102728') %>% rename(Legend = text_gener)
-    # 
-    
-    carto_url = "https://phl.carto.com/api/v2/sql"
-    
-    # Crime incidents
-    table_name = "incidents_part1_part2"
-    
-    # query
-    where2 = "dispatch_date >= '2022-01-01' AND dispatch_date < '2023-01-01' AND text_general_code IN ('DRIVING UNDER THE INFLUENCE','Theft from Vehicle','Thefts','Disorderly Conduct','Public Drunkenness', 'Arson', 'Vandalism/Criminal Mischief')"
-    
-    query2 = paste("SELECT *",
-                   "FROM", table_name,
-                   "WHERE", where)
-    
-    incidents22 = rphl::get_carto(query2, format = "csv", base_url = carto_url, stringsAsFactors = F)%>%
-      rename(Legend = text_general_code)
-    incidents22 <- incidents22 %>%
-      filter(!is.na(point_x) & !is.na(point_y)) %>%
-      st_as_sf(coords = c("point_x","point_y"),crs=4326) %>%
-      st_transform('ESRI:102728') %>%
-      dplyr::select(Legend, geometry)
-    
-    
-    
-    
-    # filter to only keep vandalism incidents
-    vandalism22 <- incidents22 %>% filter(Legend == "Vandalism/Criminal Mischief") %>% 
-      .[fishnet,]
-    
-    
-    # from lab
-    vand_KDE_sum <- as.data.frame(vand_KD.1000) %>%
-      st_as_sf(coords = c("x", "y"), crs = st_crs(final_net)) %>%
-      aggregate(., final_net, mean) 
-    kde_breaks <- classIntervals(vand_KDE_sum$value, 
-                                 n = 5, "fisher")
-    vand_KDE_sf <- vand_KDE_sum %>%
-      mutate(label = "Kernel Density",
-             Risk_Category = classInt::findCols(kde_breaks),
-             Risk_Category = case_when(
-               Risk_Category == 5 ~ "5th",
-               Risk_Category == 4 ~ "4th",
-               Risk_Category == 3 ~ "3rd",
-               Risk_Category == 2 ~ "2nd",
-               Risk_Category == 1 ~ "1st")) %>%
-      cbind(
-        aggregate(
-          dplyr::select(vandalism22) %>% mutate(vandCount = 1), ., sum) %>%
-          mutate(vandCount = replace_na(vandCount, 0))) %>%
-      dplyr::select(label, Risk_Category, vandCount)
-    
-    
-    ml_breaks <- classIntervals(reg.spatialCV$Prediction, 
-                                n = 5, "fisher")
-    vand_risk_sf <-
-      reg.spatialCV %>%
-      mutate(label = "Risk Predictions",
-             Risk_Category =classInt::findCols(ml_breaks),
-             Risk_Category = case_when(
-               Risk_Category == 5 ~ "5th",
-               Risk_Category == 4 ~ "4th",
-               Risk_Category == 3 ~ "3rd",
-               Risk_Category == 2 ~ "2nd",
-               Risk_Category == 1 ~ "1st")) %>%
-      cbind(
-        aggregate(
-          dplyr::select(vandalism22) %>% mutate(vandCount = 1), ., sum) %>%
-          mutate(vandCount = replace_na(vandCount, 0))) %>%
-      dplyr::select(label,Risk_Category, vandCount)
-    
-    
-    rbind(vand_KDE_sf, vand_risk_sf) %>%
-      na.omit() %>%
-      gather(Variable, Value, -label, -Risk_Category, -geometry) %>%
-      ggplot() +
-      geom_sf(aes(fill = Risk_Category), colour = NA) +
-      geom_sf(data = sample_n(vandalism22, 3000), size = .25, colour = "black") +
-      facet_wrap(~label, ) +
-      scale_fill_viridis(discrete = TRUE) +
-      labs(title="Comparison of Kernel Density and Risk Predictions",
-           subtitle="2021 Vandalism; 2022 Vandalism risk predictions",
-           caption = "Figure 10.") +
-      theme(legend.position="bottom") +
-      mapTheme(title_size = 14)
-    
-  }
-  
-  # comparison of kernel density to risk prediction model
-  {
-    rbind(vand_KDE_sf, vand_risk_sf) %>%
-      st_drop_geometry() %>%
-      na.omit() %>%
-      gather(Variable, Value, -label, -Risk_Category) %>%
-      group_by(label, Risk_Category) %>%
-      summarize(countVand = sum(Value)) %>%
-      ungroup() %>%
-      group_by(label) %>%
-      mutate(Pcnt_of_test_set_crimes = countVand / sum(countVand)) %>%
-      ggplot(aes(Risk_Category,Pcnt_of_test_set_crimes)) +
-      geom_bar(aes(fill=label), position="dodge", stat="identity") +
-      scale_fill_viridis(discrete = TRUE, name = "Model") +
-      labs(title = "Risk prediction vs. Kernel density, 2022 Vandalism Incidents",
-           y = "% of Test Set Vandalism Incidents (per model)",
-           x = "Risk Category",
-           caption = "Figure 11.") +
-      theme_bw() +
-      theme(axis.text.x = element_text(angle = 45, vjust = 0.5))
-    
-  }
-}
-
-
 
