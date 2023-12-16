@@ -1103,6 +1103,7 @@ reg.summary %>%
   spread(RaceContext, mean.Error) %>%
   kable(caption = "Table 2. Mean Error by Neighborhood Racial Context") %>%
   kable_styling("striped", full_width = F) %>% 
+  row_spec(2, bold = T, color = "white", background = viridis::cividis(1)) %>%
   kable_classic(html_font = "Cambria")
 
 ```
@@ -1135,6 +1136,7 @@ reg.summary %>%
   spread(IncomeContext, mean.Error) %>%
   kable(caption = "Table 3. Mean Error by Neighborhood Income Context") %>%
   kable_styling("striped", full_width = F) %>% 
+  row_spec(2, bold = T, color = "white", background = viridis::cividis(1)) %>%
   kable_classic(html_font = "Cambria")
 
 ```
