@@ -770,7 +770,7 @@ final_net <-
 
 ```
 
-Revisiting the variables described in Figure 3, the following scatterplots in Figure 7 demonstrate that there are significant relationships between certain factors including the previous year's count (count18)
+Revisiting the variables described in Figure 3, the following scatterplots in Figure 7 demonstrate that there are significant relationships between certain factors including the previous year's count (count18) with an R value of 0.86, followed by the permit count from two years prior (count_permits17 with an R value of 0.76). In several of the features, 'peaks' of values appear, such as in the marker for children, , being in the same house after 1 year in the metro area, and 311 complaints for street trees in the year that is being predicted. These high peaks of values indicate that there is significant variation in those features and thus might be more susceptible to outliers.
 
 #### Figure 7. Scatterplots of Predictors
 ```{r fig7 small mult scatter, fig.height=21, fig.width=10}
@@ -822,7 +822,7 @@ ggplot(correlation.long %>%
 
 ```
 
-
+The following code chunk runs the model and assesses the likelihood of permit counts by neighborhood and fishnet level. This enables comparsion of the results across multiple spatial scales. 
 
 ```{r models, results='hide'}
 # just risk factors
@@ -923,10 +923,11 @@ reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 6.170643
 ### Model Selection 
 
 
-
 ### Cross Validation
+We created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process. To increase accuracy, we only kept the model with both risk factors and spatial process, and used the model without spatial predctors as a check against the predicted development. The spatially-accounted for model factored in th role that spatial clustering has in predicting future development and the potential for it to falsely group or attribute future development to variables. Using the leave-one-group-out cross validation method (logo-cv) will iterate through each neighborhood and predict the amount of development that is expected. It will then compare that development against the hold-out community, leaving expected and predicted values. The Random K-folds methods was also used. 
 
-[description of figure 8 & 9]
+As figure 8 demonstrates, incorporating the spatial factors into our model increased the accuracy. In the LOGO-CV method, excluding the spatial factors on the left hand side increased the percentage error (the difference between what was predicted and what was observed), while including the spatial factors greatly reduced the error, especially visible in South Philadelphia. 
+
 
 #### Figure 8. Map of Model Errors
 ```{r fig8 small mult map errors, fig.height=8, fig.width=10}
@@ -984,7 +985,7 @@ error_by_reg_and_fold %>%
 
 #### Figure 9. Real vs Predicted 2019 Permit Count
 
-Here, we show the real vs predicted counts of new construction permits in 2019 (see figure 9).
+Figure 9 shows the real vs predicted counts of new construction permits in 2019 (see figure 9). The model here tends to over predict the number of construction permits that will occur in the Center City area, yet underpredicts in some north-west parts of the city. The real permit count (in comparison to the predicted permit count) is more distributed, indicating that it is possible the predicted permit count is being thrown off by extreme values. 
 
 ```{r fig 9 predicted vs real}
 reg.summary %>% 
@@ -1017,6 +1018,9 @@ reg.summary %>%
 
 
 #### Figure 10. Bar Plots of Error
+
+Looking at the results and distribution of the error in a bar graph format (as is shown in figure 10) supports the hypothesis that extreme values are skewing model results, while affirming that accoutning for the spatial processes is an important part of the analysis. Accounting for the spatial analysis, particularly in the LOGO-CV method, removes the influence of the 350 count variable visible in the far right hand portion of that graph. However, even after the spatial variables have been accounted for, the spatial LOGO-CV method indicates that there are approximately 10 cells with a permit count error greater than 100. This is a significant error maring and can be significantly skewing the results. 
+
 ```{r fig10 bar plots of MAE}
 # adjust plotTheme to fit titles
 plotTheme <- function(base_size = 12, title_size = 16) {
@@ -1055,7 +1059,7 @@ error_by_reg_and_fold %>%
 ```
 
 [description of table 1]
-Table 1 below shows the summary of regressions, including the mean and standard deviation of MAE for both of the models and both of the cross validation methods. We highlighted the row showing the results of both cross validation methods for the model including spatial process, to make clear how much these spatial process features improved our model.
+Table 1 below shows the summary of regressions, including the mean and standard deviation of MAE for both of the models and both of the cross validation methods. The highlighted row shows the big difference in accounting for the cross-validation model with and without the spatial process. As is clear, including the spatial process decreased the average deviation and error by 1.73, and using the spatial LOGO-CV method decreases the mean MAE by 3.34.
 
 #### Table 1. Summary of Regressions
 ```{r table1/MAE and SD}
@@ -1072,9 +1076,7 @@ st_drop_geometry(error_by_reg_and_fold) %>%
 
 ### Racial Context
 
-In order to assess if the model generalizes to different neighborhood contexts, we tested whether the model generalizes to a racial context. Using 2019 US Census data, I defined a neighborhood to be "Majority White" if over 50% of the population was White, and "Majority non-White" otherwise. 
-
-[description of table 2]
+In order to assess if the model generalizes to different neighborhood contexts, we tested whether the model generalizes to a racial context. Using 2019 US Census data, We defined a neighborhood to be "Majority White" if over 50% of the population was White, and "Majority non-White" otherwise. The results of the analysis indicate that accounting for spatial processes improved the model by XYZ 
 
 #### Table 2. Racial Context
 ```{r table2/raw errors race2}
@@ -1106,11 +1108,31 @@ reg.summary %>%
   row_spec(2, bold = T, color = "white", background = viridis::cividis(1)) %>%
   kable_classic(html_font = "Cambria")
 
+
+
+racebyNet <- reg.summary %>% 
+  filter(grepl("LOGO", Regression)) %>% 
+  st_centroid() %>%
+  st_join(RaceContext) %>%
+  na.omit() %>%
+  st_drop_geometry() %>%
+  group_by(Regression, RaceContext)%>%
+  left_join(racebyNet,RaceContext, by='GEOID')
+  #summarize(mean.Error = mean(Error, na.rm = T)) 
+  #spread(RaceContext, mean.Error)
+
+ggplot() +
+  geom_sf(data = RaceContext, aes(fill = RaceContext), color = grey(alpha = 0.2, level = 0.5)) + # Setting color to "NA" for transparent outlines
+  scale_fill_manual(values = c("navyblue", "forestgreen")) +
+  labs(fill = "Racial Majority per Census Tract",
+       title = "Census tracts with majority of the racial group per census tract") +
+  mapTheme()
+
 ```
 
 #### Table 3. Income Context
 
-Similarly, we tested the generalizability of our model in an income context.
+Similarly, we tested the generalizability of our model in an income context.The results of this context analysis indicate that where 
 
 # need to work on this.
 ```{r table3 raw errors race}
@@ -1142,5 +1164,8 @@ reg.summary %>%
 ```
 
 ## Conclusion
+While development is a constantly shifting trend, it is possible to model and develop an understanding of what is driving it within Philadelphia. The GENTRISK does thiS process by looking at the five year span of permit data for new construction, which can be a proxy for development, from 2013 - 2018. This time period enables an analysis that is robust yet also free from the influence of COVID-19 global pandemic. A number of factors, including the amount of owner-occupied vs. renter-occupied housing, the presence of bike lanes, and complaints about things such as dangerous sidewalks were sourced and their ability to relate and predict the amount of development in a target year (2019 for the testing purposes of the model) was established. From this, the previous year's development, the XYZ, and XYZ emerged as the factors with the most explanatory power. After model results were obtained, chechking the values using the leave one group out cross validation demonstreated that accounting for spatial variables also improved model results and yielded decreased margins of error across the board, and particularly for racial groups and income groups.
 
-In conclusion....
+## What comes next?
+
+The model at the core of GENTRISK has been developed, and additional capabilities will be added,including the ability to change inputs the model, such as the input tree layer, development (permit count) layer, and other factors. This powerful capability will enable city council members to model the impact that processes such as new development plan may have on their residents. Furthermore, the core model will be improved to minimize the influence that outsized numbers of permits may have on the model's accuracy, and to provide more robust analytical power in low income and majority-minority communities. 
