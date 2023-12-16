@@ -906,8 +906,16 @@ error_by_reg_and_fold %>%
 
 ```
 
-#### Figure 9. Bar Plots of Error
-```{r fig9 bar plots of MAE}
+#### Figure 9. Predicted vs Actual 2019 Permit Count
+
+
+```{r fig 9 predicted vs real}
+
+```
+
+
+#### Figure 10. Bar Plots of Error
+```{r fig10 bar plots of MAE}
 # adjust plotTheme to fit titles
 plotTheme <- function(base_size = 12, title_size = 16) {
   theme(
@@ -939,7 +947,7 @@ error_by_reg_and_fold %>%
   geom_vline(xintercept = 0) + scale_x_continuous(breaks = seq(0, 450, by = 50)) + 
   labs(title="Distribution of MAE", subtitle = "k-fold cross validation vs. LOGO-CV",
        x="Mean Absolute Error",     y="Count",
-       caption = "Figure 9.") +
+       caption = "Figure 10.") +
   plotTheme(title_size = 14) + theme(legend.position="bottom")
 
 ```
