@@ -572,7 +572,7 @@ all_net <- left_join(permit_net_allyrs, census_net, by = "uniqueID") %>%
 
 ggplot()+
   geom_sf(data=all_net,aes(fill=all_net$total_pop))+
-  labs(title = "Total Population in 2014", fill = "Total Population in 2014")
+  labs(title = "Total Population in from 2013-2018", fill = "Total Population in the fishnet, from 2013 - 2018")
 # ggplot()+
 #   geom_sf(data=all_net,aes(fill=all_net$`Total Population 15`))+
 #   labs(title = "Total Population in 2015", fill = "Total Population in 2015")
@@ -636,7 +636,8 @@ ggcorrplot(
   type="lower",
   insig = "blank",
   digits = 4,
-  lab = T, lab_size = 2)
+  lab = T, lab_size = 2)+
+  labs(caption = "Figure 3")
 
 ```
 
@@ -647,7 +648,8 @@ We also added some features that explain the spatial process of permit issuance 
 
 ### Models
 
-Since the outcome we are interested in is a count or sum of vandalism incidents, I use a Poisson regression model to estimate the outcome. I created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process (I ultimately only kept the model with both risk factors and spatial process).
+Recall that our goal is to assess the amount of development that will occur in the future, using as a proxy permits granted for new construction. To assess future oncsutrction, the model used gathers the raw permit counts as well as the variables described in the correlation matrix from 2013 to 2018, and then will predict on the permit count in 2019. However, as is shown in figure 4 below, as the majority of fishnet squares do not see permit applications in a given year. In order to evaluate the true relationships between the variables it is important to factor out the influence of the low-no values through the use of a Poisson regression. While low-no values may also be due to errors in changing the spatial scale of the census blocks to the fishnet squares, the majority of these are due to no permit applications. A Poisson regression will minimize the influence of the low-no counts. 
+
 
 ```{r fig4 poisson}
 all_net19 %>% ggplot(aes(x = count_permits19)) +
@@ -675,26 +677,9 @@ all_net19 %>% ggplot(aes(x = count_permits19)) +
        caption = "Figure 4.")
 ```
 
-### Validation
-
-To assess the validity of my models I look at the accuracy (how accurate are my predictions in the set that the models are trained on?) and more importantly, generalizability (can I predict counts of vandalism across different neighborhoods? For another year?). 
-
-1.  Accuracy
-
-To assess accuracy of my models, I examined the mean absolute error (MAE; where error = predicted value - observed value) in the dataset containing vandalism incidents for 2021 -- the same data we used to train the model. 
-
-2.  Generalizability
-
-The most important validity measure of a geospatial risk prediction model is the generalizability as we want to be able to train a model and predict future outcomes, in our case counts of vandalism. I use random k-fold (with k ~ 100) cross validation as well as ‘Leave-one-group-out’ cross-validation (LOGO-CV) to assess model generalizability. LOGO-CV helps us assess model generalizability across neighborhoods. I also predict vandalism risk scores for the following year (2022) to assess whether the model generalizes across time using the 2021 kernel density.
-
-## Results
-
-### Visualizing Predictors and Local Moran's *I*
-
-
-[description of figure 4]
-
 #### Figure 5. Predictors in final model
+
+In addition to controlling for the influence of low-no permit count fishnets, it is important to accoutn for any spatial variability in the model, so that the clusters of permit counts, as described earlier, do not spatially correlate with other variables. If there is a spatial auto-correlation between the two, this could provide an out sized influence for certain variables over others and influence the results. Figure 5 demonstrates certain spatial trends, such as the fact that building construction and rubbish 311 complaints are the largest in Southeast Philadelphia (City Council District 2), while the Center City area has the highest concentration of renter-occupied housing as well as individuals holding a bachelors degree. 
 
 ```{r fig5 small mult map, fig.height=18, fig.width=10}
 # add neighborhood names
@@ -736,6 +721,8 @@ do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on 
 ```
 
 [description of figure 6]
+
+To assess where relationships between the input variables described above might truly be driving development (using the relationships established in figure 3), a Local Moran's I test was done to establish if the new construction permits were randomly distributed through space, or if they were clustered together in a non-random fashion. A P-test was established as well in order to focus on statistically significant hot spots, which emerged in fishnet cells slightly north, in, and south of the Center City area. 
 
 #### Figure 6. Adding indicators of significant spatial processes
 ```{r fig 6 small mult map local morans i, fig.height=10}
@@ -783,7 +770,7 @@ final_net <-
 
 ```
 
-[description of figure 6] 
+Revisiting the variables described in Figure 3, the following scatterplots in Figure 7 demonstrate that there are significant relationships between certain factors including the previous year's count (count18)
 
 #### Figure 7. Scatterplots of Predictors
 ```{r fig7 small mult scatter, fig.height=21, fig.width=10}
