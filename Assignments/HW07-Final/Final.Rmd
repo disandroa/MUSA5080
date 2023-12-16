@@ -15,11 +15,11 @@ Subject: Introduction of a new development monitoring tool
 
 Dear City Council Members, 
 
-We are PHL Geo Inc., a Philadelphia based civil-service oriented coding organization using the power of geospatial analysis and city-owned data to provide informed insights to decision makers such as yourself. We are reaching out to introduce an exciting new tool which can be used in your districts immediately. The tool is called the GENTRISK and uses 10 years of development information to predict where development may happen in your community in the near future. The GENTRISK may be used in your district to manage the negative impacts of development, including trash dumping, street closures, and noise complaints. Getting ahead of development impacts can improve coordination and communication with residents in your district, improve the likelihood of successful permit applications, and enable smart zoning and growth in your city council region. 
+We are PHL Geo Inc., a Philadelphia based civil-service oriented coding organization using the power of geospatial analysis and city-owned data to provide informed insights to decision makers such as yourself. We are reaching out to introduce an exciting new tool which can be used in your districts immediately. The tool is called the GENTRISK and uses several years of permit and construction information to predict where development may happen in your community in the near future. The GENTRISK may be used in your district to manage the negative impacts of development, including trash dumping, street closures, and noise complaints. Getting ahead of development impacts can improve coordination and communication with residents in your district, improve the likelihood of successful permit applications, and enable smart zoning and growth in your city council region. 
 
-Development is a process determined by numerous factors and can have positive effects; however, development-induced gentrification, which is "a process a neighborhood change that includes economic change in a historically disinvested neighborhood - by means of real estate investment and new higher-income residents moving in - as well as demographic change - not only in terms of income level, but also in terms of changes in the education level or racial make-up of residents," can have negative effects [(Demsas, 2021)]("https://www.vox.com/22629826/gentrification-definition-housing-racism-segregation-cities"). As city council members looking to promote econoimc development while ensuring that residents have the protections that they need, the GENTRISK can provide tools that will help you see where development pressures are happening and engage in proactive outreach to those communities. Aligning city services such as increaseing access to Philadelhpia's Homestead Exemption or to the [PA Homeowner Assistance fund]("https://pahaf.org/"), can reduce these negative impacts. 
+Development is a process determined by numerous factors and can have positive effects; however, development-induced gentrification, which is "a process a neighborhood change that includes economic change in a historically disinvested neighborhood - by means of real estate investment and new higher-income residents moving in - as well as demographic change - not only in terms of income level, but also in terms of changes in the education level or racial make-up of residents," can have negative effects [(Demsas, 2021)]("https://www.vox.com/22629826/gentrification-definition-housing-racism-segregation-cities"). As city council members looking to promote economic development while ensuring that residents have the protections that they need, the GENTRISK can provide tools that will help you see where development pressures are happening and engage in proactive outreach to those communities. Aligning city services such as increasing access to Philadelphia's Homestead Exemption or to the [PA Homeowner Assistance fund]("https://pahaf.org/"), can reduce these negative impacts. 
 
-The GENTRISK uses information from the past 10 years of development and combines that with external factors including the distance to schools, tree density, and distance to public transit, in order to understand what is driving development in Philadelphia. The GENTRISK then uses the relationships between those factors to predict where development may occur so you can get ahead of any potential negative impacts. These predictions form the basis of several tools available in GENTRISK, such as scenario planning. In the scenario planning framework, you may modify inputs to see how they will impact development going forward. For example, if the new Philly Tree Plan is likely to bring more tree canopy to your community, you can use the GENTRISK to model how much further development is likely to occur. 
+The GENTRISK uses the permit information described and combines that with external factors including the distance to schools, tree density, and distance to public transit, in order to understand what is driving development in Philadelphia. The GENTRISK then uses the relationships between those factors to predict where development may occur so you can get ahead of any potential negative impacts. These predictions form the basis of several tools available in GENTRISK, such as scenario planning. In the scenario planning framework, you may modify inputs to see how they will impact development going forward. For example, if the new Philly Tree Plan is likely to bring more tree canopy to your community, you can use the GENTRISK to model how much further development is likely to occur. 
 
 The following document provides a technical overview of how the GENTRISK functions, how to interpret its results, and how it can be incorporated into your city planning techniques. We look forward to seeing GENTRISK integrated into your city planning toolkit. 
 
@@ -33,7 +33,7 @@ PHL GEO Inc. Founders
 
 # Technical Details
 
-The GENTRISK tool uses the construction of new housing and commercial buildings as its core output, as construction provides both opportunities (in the form of economic development and increased tax base) and pressures (in the form of gentrification and noise/trash) on residents and neighborhoods. Construction information is available from the [Department of Licenses and Inspection]("https://data.phila.gov/visualizations/li-building-permits") for a time period stretching over the last 10 years. While neighborhoods are constantly in a state of change, focusing in on a more specific time period can provide City Council with an accurate understanding of what is driving development in the city. THe time period from 2013 to 2018 provides a good baseline of understanding development drivers as it is prior to the impacts that the COVID-19 global pandemic had on development drivers, yet recent enough that certain key drivers - such as the turnover of permanent residents for renters - are still prevalent within Philadelphia. 
+The GENTRISK tool uses the construction of new housing and commercial buildings as its core output, as construction provides both opportunities (in the form of economic development and increased tax base) and pressures (in the form of gentrification and noise/trash) on residents and neighborhoods. Construction information is available from the [Department of Licenses and Inspection]("https://data.phila.gov/visualizations/li-building-permits") for a time period stretching over the last 10 years. While neighborhoods are constantly in a state of change, focusing in on a more specific time period can provide City Council with an accurate understanding of what is driving development in the city. The time period from 2013 to 2018 provides a good baseline of understanding development drivers as it is prior to the impacts that the COVID-19 global pandemic had on development drivers, yet recent enough that certain key drivers - such as the turnover of permanent residents for renters - are still prevalent within Philadelphia. 
 
 ```{r setup, include=FALSE, results='hide'}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
@@ -66,11 +66,10 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 
 # Data Exploration
 
-The model powering GENTRISK requires that all of the variables are gathered in the same format and then compared across time. To  facilitatate this process, the PHL GEO Inc. team used the following code to gather all of the variables and put them into a similar format. These variables can then provide an understnaidng of how neighborhoods are changing over time, followed by an investigation of what could be driving those changes; ie, if development is happening in a neighborhood, what are the factors that drive that development?
-
+The model powering GENTRISK requires that all of the variables are gathered in the same format and then compared across time. To  facilitate this process, the PHL GEO Inc. team used the following code to gather all of the variables and put them into a similar defined by a 500mx500m grid. These variables are summarized to the grid level and can then provide an understanding of how neighborhoods are changing over time, followed by an investigation of what could be driving those changes by asking the core question "what are the relationships between indicators and development (permits) over the last several years, what are the strengths of those relationships, and how can they be used to predict development in the future?"
 ## Census 
 
-A key way to contextualize these changes is to look at the changes that are happening within city council districts throughout Philadelphia. AS is shown through the map below, there are 10 city council districts in Philadelphia where changes and development pressures will have to be accounted for. 
+A key way to contextualize these changes is to look at the changes that are happening within city council districts throughout Philadelphia. AS is shown through figure 1, below, there are 10 city council districts in Philadelphia where changes and development pressures will have to be accounted for. 
 
 
 ```{r data download + wrangling, results='hide'}
@@ -201,10 +200,9 @@ ggplot() +
 
 Development patterns may be spread over space, such that they forms a smooth 'mosaic' across the city of Philadelphia. Alternatively, it is possible that several permits may be clustered together, either because they were all submitted as part of the same construction project (ie, submitting an electrical permit and roofing permit for the same property) or there were several units being worked in tandem. To better understand whether Philadelphia is experiencing a 'mosaic' of development or if development has been clustered into particular areas, a fishnet was established for grid cells of 500 meter by 500 meters across the city. The 500 meter scale (1/3rd mile) allows for a fluid understanding of development patterns at the block scale. 
 
+Figure 2 below shows the number of permits granted for each fishnet square in 2013, 2015, 2017, and target year 2019. As is visible through the maps, trends and patterns of development shift across the city, such that in 2013 development centered around the Center City Neighborhood, while moving towards 2019 - when record number of permits were granted for the time period in focus - development was centered in Center City as well as North Philadelphia. 
 
-Figure 1 below shows the number of permits granted for each fishnet square in 2014, followed by Figure 2 showing the number of permits for each fishnet square in 2015, and so on until Figure 6 demonstrating the number of permits granted for each fishnet square in 2019. As is visible through the maps, trends and patterns of development shift across the city, such that in 2014 development centered around the Center City Neighborhood, while moving towards 2019 - when record number of permits were granted for the time period in focus - development was centered in Center City as well as North Philadelphia. 
-
-It is worthwhile to note that while there are a number of areas with extensive permit counts and development pressures, so too are there a significant number of fishnet cells in the city that did not experience much  - if any - development. These low-no development areas, from the perspective of new construction, could have an outside influence on the model with impacts on its accuracy in areas experiecing higher levels of development. This was factored into the model through the use of a Poisson distribution, described in greater detail below. 
+It is worthwhile to note that while there are a number of areas with extensive permit counts and development pressures, so too are there a significant number of fishnet cells in the city that did not experience much  - if any - development. These low-no development areas, from the perspective of new construction, could have an outside influence on the model with impacts on its accuracy in areas experiencing higher levels of development. This was factored into the model through the use of a Poisson distribution, described in greater detail below. 
 
 ## Figures 2. Permit Count on Fishnet by Year
 
@@ -339,34 +337,22 @@ permit_count_map
 ```
 
 ## Census Information 
-There are a number of different methods to account for neighborhood change and the impacts of development, all of which are powered. The GENTRISK takes into account several census features, which are described below (along with their reasoning) 
+There are a number of different methods to account for the impacts of development, all of which provide insight into its social (noise, street closures, dumping), environmental (rubbish collection, street tree impairment), and economic factors. The GENTRISK takes into account several census features, which are described below (along with their reasoning), as well variables from Open Data Philly, a not for profit information sharing service, to incorporate these factors into a single model. 
 
+The census variables include:
 - Total Population: as population increases in a census tract, so too will housing pressures which can in turn lead to new construction of housing.
-- Median HH Income: as median household income increases, it is likely that the cost of amenities in the area, including housing, groceries, etc. will increase as well. 
-- Median Rent: a clear marker of development pressure, rent prices will increase as a neighborhood becomes more expensive. It can also be used to ask 'does higher rent in an area indcue more development' as developers seek to capitalize on higher prices?
-<<<<<<< Updated upstream
+- Median HH Income: as median household income increases, it is likely that the cost of amenities in the area, including housing, groceries, etc. will increase as well.
+- Median Rent: a clear marker of development pressure, rent prices will increase as a neighborhood becomes more expensive. It can also be used to ask 'does higher rent in an area induce more development' as developers seek to capitalize on higher prices?
 - Staying in the same house for 1 year: a marker of how many long-term residents are around, this can be used to assess the relationships that development has with the transition out of longer term residents. 
 - Renter Occupied (total)
-=======
-- Rent (as %age of Income): a markeer of affordabiliyt, it is possible that by building in rent-burdened communities 
+- Rent (as %age of Income): a marker of affordability, it is possible that by building in rent-burdened communities 
 - Total Metro Mobility
 - Staying in the same house for 1 year: a marker of how many long-term residents are around, this can be used to assess the relationships that development has with the transition out of longer term residents.
 - Owner Occupied (total): Owner occupied houses may be linked with 
 - Renter Occupied (total): renter-occupied housing maybe indicative of an inability to purchase housing, particularly if median home prices are greater than they would be on average. In renter-occupied housing, it is possible that there would be a greater number of work permits due to the need to upkeep the housing from greater turnover. 
 
-The model powering GENTRISK requires that all of the variables are gathered in the same format and then compared across time. To  facilitatate this process, the PHL GEO Inc. team used the following code to gather all of the variables and put them into a similar format. These variables can then provide an understnaidng of how neighborhoods are changing over time, followed by an investigation of what could be driving those changes; ie, if development is happening in a neighborhood, what are the factors that drive that development?
 
-- Building Construction complaints
-- Vacant Housing or Commercial complaints
-- Dangerous Sidewalk complaints
-- Illegal dumping complaints
-- Parks and Recreation Safety and Maintenance complaints
-- Rubbish / Recyclable Material Collection complaints
-- Street Tree maintenance complaints
-- And the distance between the centroid of each grid cell and the nearest 3 instances of the complaints listed above. 
-=======
-- Percent White
->>>>>>> Stashed changes
+
 
 ```{r create census_net}
 # function to make fishnet from acs dataframe (dat_tract), for variable (var_name), giving it the legend (var_name), aggregating with function (sum_or_mean)
@@ -429,15 +415,16 @@ In addition to census information, the GENTRSIK takes into account other factors
 
 A primary challenge of using data in these models is that it is available across multiple scales and times; to counteract this challenge the GENTRISK model focuses on the distribution of the following factors from 2013 to 2018, and then uses this information to validate its results in 2019. Information was gathered from 311 calls sent to the city, particularly as they relate to new construction impacts. As 311 calls are openly accessible to all, they represent data that is much more flexible and inclusive than data solely collected by the city. 
 
-Similar to permits, 
+The 311 variables that were gathered from Open Data Philly include:
 
-311 Variables to include are: 
+- Building Construction complaints
+- Vacant Housing or Commercial complaints
 - Dangerous Sidewalk complaints
 - Illegal dumping complaints
 - Parks and Recreation Safety and Maintenance complaints
 - Rubbish / Recyclable Material Collection complaints
 - Street Tree maintenance complaints
-- And the distance between those variables to eachother. 
+- And the distance between the centroid of each grid cell and the nearest 3 instances of the complaints listed above. 
 
 ```{r create 311_net}
 long_15 <- reports311 %>% 
@@ -591,25 +578,19 @@ ggplot()+
 
 ```
 
-<<<<<<< HEAD
-#### Figure 3. Correlation Matrix of all Predictors
-=======
-
-
 
 # Feature Selection
 
 All census variables were pulled at the block group level, which is a smaller scale than the 500x500 meter fishnet used in this analysis. As there is no perfect way to join block-group-level census data to our fishnet, we joined the most center point of each block group to the fishnet, and aggregated data where necessary. As an example, if a fishnet encompassed census blocks A, B, and C, with respective populations of 100,150, and 125, then the total fishnet population would be 375. This enables a smooth comparison across the surface of Philadelphia. In some cases where the centroid of the block group falls outside the boundary of the fishnet square, the resulting fishnet square population would be 0. While this introduces a certain level of error into the calculations, the error can be calculated and corrective actions and more informed decisions can be made. 
-## Figure 7. Correlation Matrix of all possible risk factors
+#### Figure 3. Correlation Matrix of all Predictors
 
 With all of the potential variables to incorporate, it is important to evaluate which factors have the greatest potential influence on the prediction of the permit count (the proxy for development), which can be done through the chart below, also called a Correlation Matrix. In the matrix, boxes with a deep red color indicate a positive relationship, such that as the value increases, the predicted permit count increases. Boxes with a deep blue color indicate that as the variable increases in value, the predicted permit count decreases. We established our model to use information from 2013 - 2018, and test our predictions on 2019, the last pre-covid impacted year. Using these relationships we can establish clear linkages between 2019 predictions and future predictions. 
 
-From the matrix below, we can see that previous year's permit count (ie, the development that occured in 2018) emerged as the single most important factor the count of future permits (in this case, modelling the development that would occur in 2019).
+From the matrix below, we can see that previous year's permit count (ie, the development that occurred in 2018) emerged as the single most important factor the count of future permits (in this case, modelling the development that would occur in 2019).
 
 The strength of the relationships is **0.9**, such that a 1% increase in the number of permits granted for new construction in the year prior would net an 0.9% increase in the count of permits for the year in which we are predicting. Earlier years also have a relationship, such that a 1% increase in the number of permits granted three years prior (in 2016) would explain about a 0.6% increase in the number of permits in the target year. 
 
 Non-temporal factors that have a high influence include 311 Building Construction Complaints (1% increase means a 0.6% increase in permit count), Illegal Dumping complaints (1% increase means a 0.5% increase in permit count), and Rubbish/Recyclable Material Collection complaints (1% increase explains a 0.4% increase in permit count).
->>>>>>> 5097e5bb2c0f527552d6019ea3c0d7f4ba308bd0
 
 ```{r fig3 correlation matrix, fig.height=6, fig.width=10}
 # making this moreso to see which would actually be good predictors
@@ -617,7 +598,7 @@ var_for_model <- c("uniqueID","cvID","count_permits19","count_permits18","count_
                    "count_permits15","BuildingConstruction2019","IllegalDumping2019","DangerousSidewalk2019",
                    "RubbishRecyclableMaterialCollection2019","StreetTrees2019","parksNrec19.dist",
                    "VacantHouseorCommercial2019","vehicles_avail","med_rent","renter_occ","total_pop",
-                   "samehouse1yr_metro","bachelors25","children")
+                   "samehouse1yr_metro","children")
 
 all_net19 <- all_net %>% 
   dplyr::select(all_of(var_for_model))
@@ -641,14 +622,11 @@ ggcorrplot(
 
 ```
 
-### Spatial Process of Permit Count
-
-We also added some features that explain the spatial process of permit issuance in Philadelphia. Using local Moran's *I*, we examined the spatial process which helps us understand whether the permit count at a certain location is randomly distributed or clustered relative to its immediate neighbors. 
-
+## Spatial Process of Permit Count
 
 ### Models
 
-Recall that our goal is to assess the amount of development that will occur in the future, using as a proxy permits granted for new construction. To assess future oncsutrction, the model used gathers the raw permit counts as well as the variables described in the correlation matrix from 2013 to 2018, and then will predict on the permit count in 2019. However, as is shown in figure 4 below, as the majority of fishnet squares do not see permit applications in a given year. In order to evaluate the true relationships between the variables it is important to factor out the influence of the low-no values through the use of a Poisson regression. While low-no values may also be due to errors in changing the spatial scale of the census blocks to the fishnet squares, the majority of these are due to no permit applications. A Poisson regression will minimize the influence of the low-no counts. 
+Recall that our goal is to assess the amount of development that will occur in the future, using as a proxy permits granted for new construction. To assess future construction, the model used gathers the raw permit counts as well as the variables described in the correlation matrix from 2013 to 2018, and then will predict on the permit count in 2019. However, as is shown in figure 4 below, as the majority of fishnet squares do not see permit applications in a given year. In order to evaluate the true relationships between the variables it is important to factor out the influence of the low-no values through the use of a Poisson regression. While low-no values may also be due to errors in changing the spatial scale of the census blocks to the fishnet squares, the majority of these are due to no permit applications. A Poisson regression will minimize the influence of the low-no counts. 
 
 
 ```{r fig4 poisson}
@@ -679,7 +657,7 @@ all_net19 %>% ggplot(aes(x = count_permits19)) +
 
 #### Figure 5. Predictors in final model
 
-In addition to controlling for the influence of low-no permit count fishnets, it is important to accoutn for any spatial variability in the model, so that the clusters of permit counts, as described earlier, do not spatially correlate with other variables. If there is a spatial auto-correlation between the two, this could provide an out sized influence for certain variables over others and influence the results. Figure 5 demonstrates certain spatial trends, such as the fact that building construction and rubbish 311 complaints are the largest in Southeast Philadelphia (City Council District 2), while the Center City area has the highest concentration of renter-occupied housing as well as individuals holding a bachelors degree. 
+In addition to controlling for the influence of low-no permit count fishnets, it is important to account for any spatial variability in the model, so that the clusters of permit counts, as described earlier, do not spatially correlate with other variables. If there is a spatial auto-correlation between the two, this could provide an out sized influence for certain variables over others and influence the results. Figure 5 demonstrates certain spatial trends, such as the fact that building construction and rubbish 311 complaints are the largest in Southeast Philadelphia (City Council District 2), while the Center City area has the highest concentration of renter-occupied housing as well as individuals holding a bachelors degree. 
 
 ```{r fig5 small mult map, fig.height=18, fig.width=10}
 # add neighborhood names
@@ -719,8 +697,6 @@ for (i in vars) {
 
 do.call(grid.arrange,c(varList, ncol = 3, top = "Predictors of Permit Count (on fishnet)", bottom = "Figure 5."))
 ```
-
-[description of figure 6]
 
 To assess where relationships between the input variables described above might truly be driving development (using the relationships established in figure 3), a Local Moran's I test was done to establish if the new construction permits were randomly distributed through space, or if they were clustered together in a non-random fashion. A P-test was established as well in order to focus on statistically significant hot spots, which emerged in fishnet cells slightly north, in, and south of the Center City area. 
 
@@ -828,7 +804,7 @@ The following code chunk runs the model and assesses the likelihood of permit co
 # just risk factors
 reg.vars <- c("count_permits18","count_permits17","count_permits16","count_permits15","BuildingConstruction",
               "IllegalDumping","DangerousSidewalk","RubbishRecyclableMaterialCollection","vehicles_avail",
-              "med_rent","renter_occ","VacantHouseorCommercial","total_pop","samehouse1yr_metro","bachelors25",
+              "med_rent","renter_occ","VacantHouseorCommercial","total_pop","samehouse1yr_metro",
               "StreetTrees","children","parksNrec.dist") 
 
 # random k-fold CV
@@ -920,13 +896,11 @@ reg.logo.spatial.MAE <- mean(abs(reg.logo.spatialCV$error)) # 6.170643
 
 ```
 
-### Model Selection 
+## Model Selection 
 
 
 ### Cross Validation
-We created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process. To increase accuracy, we only kept the model with both risk factors and spatial process, and used the model without spatial predctors as a check against the predicted development. The spatially-accounted for model factored in th role that spatial clustering has in predicting future development and the potential for it to falsely group or attribute future development to variables. Using the leave-one-group-out cross validation method (logo-cv) will iterate through each neighborhood and predict the amount of development that is expected. It will then compare that development against the hold-out community, leaving expected and predicted values. The Random K-folds methods was also used. 
-
-As figure 8 demonstrates, incorporating the spatial factors into our model increased the accuracy. In the LOGO-CV method, excluding the spatial factors on the left hand side increased the percentage error (the difference between what was predicted and what was observed), while including the spatial factors greatly reduced the error, especially visible in South Philadelphia. 
+We created two types of models -- one with just risk factors as the predictors and another with both risk factors and spatial process. To increase accuracy, we only kept the model with both risk factors and spatial process, and used the model without spatial predictors as a check against the predicted development. The spatially-accounted for model factored in th role that spatial clustering has in predicting future development and the potential for it to falsely group or attribute future development to variables. Using the leave-one-group-out cross validation method (logo-cv) will iterate through each neighborhood and predict the amount of development that is expected. It will then compare that development against the hold-out community, leaving expected and predicted values. The Random K-folds methods was also used. As figure 8 demonstrates, incorporating the spatial factors into our model increased the accuracy. In the LOGO-CV method, excluding the spatial factors on the left hand side increased the percentage error (the difference between what was predicted and what was observed), while including the spatial factors greatly reduced the error, especially visible in South Philadelphia. 
 
 
 #### Figure 8. Map of Model Errors
@@ -985,7 +959,7 @@ error_by_reg_and_fold %>%
 
 #### Figure 9. Real vs Predicted 2019 Permit Count
 
-Figure 9 shows the real vs predicted counts of new construction permits in 2019 (see figure 9). The model here tends to over predict the number of construction permits that will occur in the Center City area, yet underpredicts in some north-west parts of the city. The real permit count (in comparison to the predicted permit count) is more distributed, indicating that it is possible the predicted permit count is being thrown off by extreme values. 
+Figure 9 shows the real vs predicted counts of new construction permits in 2019 (see figure 9). The model here tends to over predict the number of construction permits that will occur in the Center City area, yet under predicts in some north-west parts of the city. The real permit count (in comparison to the predicted permit count) is more distributed, indicating that it is possible the predicted permit count is being thrown off by extreme values. 
 
 ```{r fig 9 predicted vs real}
 reg.summary %>% 
@@ -1058,7 +1032,6 @@ error_by_reg_and_fold %>%
 
 ```
 
-[description of table 1]
 Table 1 below shows the summary of regressions, including the mean and standard deviation of MAE for both of the models and both of the cross validation methods. The highlighted row shows the big difference in accounting for the cross-validation model with and without the spatial process. As is clear, including the spatial process decreased the average deviation and error by 1.73, and using the spatial LOGO-CV method decreases the mean MAE by 3.34.
 
 #### Table 1. Summary of Regressions
@@ -1076,7 +1049,7 @@ st_drop_geometry(error_by_reg_and_fold) %>%
 
 ### Racial Context
 
-In order to assess if the model generalizes to different neighborhood contexts, we tested whether the model generalizes to a racial context. Using 2019 US Census data, We defined a neighborhood to be "Majority White" if over 50% of the population was White, and "Majority non-White" otherwise. The results of the analysis indicate that accounting for spatial processes improved the model by XYZ 
+In order to assess if the model generalizes to different neighborhood contexts, we tested whether the model generalizes to a racial context. Using 2019 US Census data, We defined a neighborhood to be "Majority White" if over 50% of the population was White, and "Majority non-White" otherwise. The results of the analysis indicate that accounting for spatial processes vastly improved the model performance, particularly in majority non-white communities. 
 
 #### Table 2. Racial Context
 ```{r table2/raw errors race2}
@@ -1116,8 +1089,8 @@ racebyNet <- reg.summary %>%
   st_join(RaceContext) %>%
   na.omit() %>%
   st_drop_geometry() %>%
-  group_by(Regression, RaceContext)%>%
-  left_join(racebyNet,RaceContext, by='GEOID')
+  group_by(Regression, RaceContext)
+racebyNet<- left_join(racebyNet,RaceContext, by='GEOID')
   #summarize(mean.Error = mean(Error, na.rm = T)) 
   #spread(RaceContext, mean.Error)
 
@@ -1132,7 +1105,7 @@ ggplot() +
 
 #### Table 3. Income Context
 
-Similarly, we tested the generalizability of our model in an income context.The results of this context analysis indicate that where 
+Similarly, we tested the generalizability of our model in an income context.The results of this context analysis indicate that in predominately wealthier areas accounting for spatial processes actually decreases model accuracy; however, including the spatial process increases the accuracy remarkably in lower income areas. Given the equity considerations, including the spatial context is a high priority.    
 
 ```{r table3 raw errors race}
 IncomeContext <- get_acs(geography = "block group", 
@@ -1163,7 +1136,7 @@ reg.summary %>%
 ```
 
 ## Conclusion
-While development is a constantly shifting trend, it is possible to model and develop an understanding of what is driving it within Philadelphia. The GENTRISK does thiS process by looking at the five year span of permit data for new construction, which can be a proxy for development, from 2013 - 2018. This time period enables an analysis that is robust yet also free from the influence of COVID-19 global pandemic. A number of factors, including the amount of owner-occupied vs. renter-occupied housing, the presence of bike lanes, and complaints about things such as dangerous sidewalks were sourced and their ability to relate and predict the amount of development in a target year (2019 for the testing purposes of the model) was established. From this, the previous year's development, the XYZ, and XYZ emerged as the factors with the most explanatory power. After model results were obtained, chechking the values using the leave one group out cross validation demonstreated that accounting for spatial variables also improved model results and yielded decreased margins of error across the board, and particularly for racial groups and income groups.
+While development is a constantly shifting trend, it is possible to model and develop an understanding of what is driving it within Philadelphia. The GENTRISK does thiS process by looking at the five year span of permit data for new construction, which can be a proxy for development, from 2013 - 2018. This time period enables an analysis that is robust yet also free from the influence of COVID-19 global pandemic. A number of factors, including the amount of owner-occupied vs. renter-occupied housing, the presence of bike lanes, and complaints about things such as dangerous sidewalks were sourced and their ability to relate and predict the amount of development in a target year (2019 for the testing purposes of the model) was established. From this, the previous year's development, the XYZ, and XYZ emerged as the factors with the most explanatory power. After model results were obtained, checking the values using the leave one group out cross validation demonstrated that accounting for spatial variables also improved model results and yielded decreased margins of error across the board, and particularly for racial groups and income groups.
 
 ## What comes next?
 
