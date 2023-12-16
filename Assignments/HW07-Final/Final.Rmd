@@ -602,7 +602,7 @@ ggcorrplot(
 
 ```
 
-## Model
+## Poisson Regression
 
 Recall that our goal is to predict the amount of development that will occur in the future, using permits granted for new construction as a proxy. To assess future construction, the model gathers the permit counts from previous years as well as the variables described above, and then will predict on the permit count in 2019. However, as is shown in figure 5 below, as the majority of fishnet squares do not see permit applications in a given year. In order to evaluate the true relationships between the variables it is important to factor out the influence of the low-no values through the use of a Poisson regression. While low-no values may also be due to errors in changing the spatial scale of the census blocks to the fishnet squares, the majority of these are due to no permit applications. A Poisson regression is the best model when predicting counts as the outcome. 
 
@@ -779,7 +779,7 @@ ggplot(correlation.long %>%
 
 ```
 
-# Defining the Model 
+# Model Definition and Cross Validation
 
 After iterations of testing, the following combination of predictors gave the best results for our model. 
 
@@ -1053,6 +1053,20 @@ st_drop_geometry(error_by_reg_and_fold) %>%
 
 #### Figure 12. Map of Neighborhoods (Race Context, 2019)
 ```{r fig12 raceContext map}
+RaceContext <- get_acs(geography = "block group", 
+                       variables = c("B01001_001E","B02001_002E"), 
+                       year = 2019, state = 42, 
+                       geometry = T, output = "wide") %>%
+  st_transform(crs = 2272) %>% 
+  dplyr::select(!matches("M$")) %>%
+  rename(total_pop = B01001_001E,
+         white_pop = B02001_002E) %>%
+  mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
+         RaceContext = ifelse(pct_white > 0.5, "Majority White", 
+                              ifelse(total_pop != 0 , "Majority non-White", NA))) %>% 
+  dplyr::select(-c(NAME,total_pop,white_pop,pct_white)) %>% 
+  .[nhoods,]
+
 race_map <- reg.summary %>% 
   filter(grepl("LOGO", Regression)) %>% 
   st_centroid() %>%
@@ -1078,6 +1092,17 @@ In order to assess if the model generalizes to different neighborhood contexts, 
 
 #### Figure 13. Map of Neighborhoods (Income Context, 2019)
 ```{r fig13 incomeContext map}
+IncomeContext <- get_acs(geography = "block group", 
+                       variables = c("B19013_001E"), 
+                       year = 2019, state = 42, 
+                       geometry = T, output = "wide") %>%
+  st_transform(crs = 2272) %>% 
+  dplyr::select(!matches("M$")) %>%
+  rename(med_hh_inc = B19013_001E) %>%
+  mutate(IncomeContext = ifelse(med_hh_inc > medHHinc2019, "Above Median Income", "Below Median Income")) %>% 
+  dplyr::select(-c(NAME,med_hh_inc)) %>% 
+  .[nhoods,]
+
 inc_map <- reg.summary %>% 
   filter(grepl("LOGO", Regression)) %>% 
   st_centroid() %>%
@@ -1105,20 +1130,6 @@ Table 2 shows that though the difference is relatively small for the model with 
 
 #### Table 2. Racial Context
 ```{r table2 racial context}
-RaceContext <- get_acs(geography = "block group", 
-                       variables = c("B01001_001E","B02001_002E"), 
-                       year = 2019, state = 42, 
-                       geometry = T, output = "wide") %>%
-  st_transform(crs = 2272) %>% 
-  dplyr::select(!matches("M$")) %>%
-  rename(total_pop = B01001_001E,
-         white_pop = B02001_002E) %>%
-  mutate(pct_white = ifelse(total_pop > 0, white_pop / total_pop,0),
-         RaceContext = ifelse(pct_white > 0.5, "Majority White", 
-                              ifelse(total_pop != 0 , "Majority non-White", NA))) %>% 
-  dplyr::select(-c(NAME,total_pop,white_pop,pct_white)) %>% 
-  .[nhoods,]
-
 reg.summary %>% 
   filter(grepl("LOGO", Regression)) %>% 
   st_centroid() %>%
@@ -1140,18 +1151,7 @@ reg.summary %>%
 Similarly, we tested the generalizability of our model in an income context. Table 3 shows us that the model with spatial features added generalizes better than the model without in the context of income, though both models seem to overestimate permit count for neighborhoods that are considered "Blow Median Income". 
 
 #### Table 3. Income Context
-```{r table3 raw errors race}
-IncomeContext <- get_acs(geography = "block group", 
-                       variables = c("B19013_001E"), 
-                       year = 2019, state = 42, 
-                       geometry = T, output = "wide") %>%
-  st_transform(crs = 2272) %>% 
-  dplyr::select(!matches("M$")) %>%
-  rename(med_hh_inc = B19013_001E) %>%
-  mutate(IncomeContext = ifelse(med_hh_inc > medHHinc2019, "Above Median Income", "Below Median Income")) %>% 
-  dplyr::select(-c(NAME,med_hh_inc)) %>% 
-  .[nhoods,]
-
+```{r table3 income context}
 reg.summary %>% 
   filter(grepl("LOGO", Regression)) %>% 
   st_centroid() %>%
@@ -1168,7 +1168,8 @@ reg.summary %>%
 
 ```
 
-## Conclusion
+# Conclusion
+
 While development is a constantly shifting trend, it is possible to model and develop an understanding of what is driving it within Philadelphia. The GENTRISK does this process by looking at the five year span of permit data for new construction, which can be a proxy for development, from 2015 - 2018. This time period enables an analysis that is robust yet also free from the influence of COVID-19 global pandemic. A number of factors, including the amount of owner-occupied vs. renter-occupied housing, the presence of bike lanes, and complaints about things such as dangerous sidewalks were sourced and their ability to relate and predict the amount of development in a target year (2019 for the testing purposes of the model) was established. From this, the previous year's development, the XYZ, and XYZ emerged as the factors with the most explanatory power. After model results were obtained, checking the values using the leave one group out cross validation demonstrated that accounting for spatial variables also improved model results and yielded decreased margins of error across the board, and particularly for racial groups and income groups.
 
 ## What comes next?
