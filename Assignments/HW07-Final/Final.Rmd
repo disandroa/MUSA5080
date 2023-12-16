@@ -1134,7 +1134,6 @@ ggplot() +
 
 Similarly, we tested the generalizability of our model in an income context.The results of this context analysis indicate that where 
 
-# need to work on this.
 ```{r table3 raw errors race}
 IncomeContext <- get_acs(geography = "block group", 
                        variables = c("B19013_001E"), 
