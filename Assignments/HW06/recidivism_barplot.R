@@ -158,8 +158,12 @@
   # thresh5
   # dev.off()
   
+  optimum <- testProbs.thresholds %>% 
+    mutate(cost = Count_TN*-3274 - Count_TP*43716 - Count_FN*3274 - Count_FP*167218) %>% 
+    arrange(cost)
+  
   thresh_opt <- 
-    filter(testProbs.thresholds, Threshold == .45)  %>%
+    filter(testProbs.thresholds, Threshold == 0.55)  %>%
     dplyr::select(matches("Accuracy|Race|Rec.")) %>%
     gather(Variable, Value, -Race) %>%
     mutate(Variable = factor(Variable, levels = c("Accuracy","LR, Rec.","LR, did not Rec.","HR, Rec.","HR, did not Rec."))) %>% 
@@ -167,7 +171,7 @@
     geom_bar(aes(fill = Race), position = "dodge", stat = "identity") +
     scale_fill_manual(values = palette_3_colors) +
     labs(title="Figure 2. Revidivation Rate by Race",
-         subtitle = "45% Likelihood as Cutoff for High Risk", 
+         subtitle = "55% Likelihood as Cutoff for High Risk", 
          x = "Outcome",y = "Rate",
          caption = "LR = Low Risk; HR = High Risk; Rec. = Recidivate(d)") +
     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
