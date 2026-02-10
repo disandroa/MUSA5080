@@ -1,0 +1,314 @@
+---
+title: "MUSA508 Public Policy Analytics - Assignment 01"
+subtitle: "Introduction to tidycensus"
+author: "Akira Di Sandro"
+date: "2023-09-07"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+    theme: simplex
+    code_folding: hide
+  pdf_document: default
+---
+
+This was my very first MUSA508 (PPA) assignment, where we were challenged to demonstrate our abilities to learn tidycensus by making various some simple plots and maps. (Last updated in Jan. 2026)
+
+### Initial Set-up
+
+*The code I use to initially set my environment up is hidden in the knitted HTML.
+
+```{r r-setup, results='hide', echo = F, eval = T, warning = F, message = F}
+knitr::opts_chunk$set(echo = T, eval = T, warning = F, message = F)
+
+# set working directory
+setwd("~/Documents/MUSA/Fall23/MUSA5080")
+
+```
+
+```{r load_pckgs}
+# load all packages
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(ggplot2)
+library(ggtext)
+library(kableExtra)
+
+# define my color palette
+mycolors <- c("#5C0202","#D43232","#E1BE6A","#57B177","#40B0A6")
+
+```
+
+```{r my_API, results='hide', echo = F, eval = T, warning = F, message = F}
+# read in API
+census_api_key("f2855a6037284cb9cbed55e96e6b99be17ee05c6", overwrite = TRUE, install = T)
+
+```
+
+
+# Preparing the Data
+
+## Loading Census Data and Creating New Variables
+
+We were taught in class that we can retrieve all Census variable names and definitions by calling the function, `load_variables()`. From this list, we identified the variables that we're most interested in for this assignment.
+
+```{r ACS_var_list}
+acs_variable_list.2020 <- load_variables(2020, #year
+                                         "acs5", #five year ACS estimates
+                                         cache = TRUE)
+
+acs_variable_list.2016 <- load_variables(2016, #year
+                                         "acs5", #five year ACS estimates
+                                         cache = TRUE)
+```
+
+In the following step, we define our variables of interest and download this data from ACS. For this assignment, we are interested in B01001_001E (total population), B25002_001E (total housing units), B25002_003E (number of vacant housing units), B19013_001E (median household income in dollars), B02001_002E (total people who identify as "white alone"), and B06009_006E (total people who hold a graduate or professional degree). 
+
+We pull this data at the tract level for Philadelphia county for the years 2016 and 2020.
+
+```{r load_acsdata, results='hide', echo = F}
+# define variables of interest
+acs_vars <- c("B01001_001E", # ACS total Pop estimate
+              "B25002_001E", # Estimate of total housing units
+              "B25002_003E", # Number of vacant housing units
+              "B19013_001E", # Median HH Income ($)
+              "B02001_002E", # People describing themselves as "white alone"
+              "B06009_006E") # Total graduate or professional degree
+
+# pull and clean data for 2020
+acsTractsPHL.2020 <- get_acs(geography = "tract",
+                             year = 2020, 
+                             variables = acs_vars, 
+                             geometry = T, 
+                             state = "PA", 
+                             county = "Philadelphia", 
+                             output = "wide") %>% 
+  # only keep estimates
+  dplyr::select (GEOID, NAME, all_of(acs_vars))
+
+# repeat steps for 2016
+acsTractsPHL.2016 <- get_acs(geography = "tract",
+                             year = 2016, 
+                             variables = acs_vars,
+                             geometry = T,
+                             state = "PA", 
+                             county = "Philadelphia",
+                             output = "wide") %>%
+  dplyr::select (GEOID, NAME, all_of(acs_vars)) 
+
+```
+
+## Data Wrangling
+
+For the sake of this assignment, we create four variables and they are as follows.
+
+* Percentage of vacant housing units (`pctVacant`)
+
+* Percentage of people identifying as "white alone" (`pctWhite`)
+
+* Change in median household income from 2016 to 2020 (inflation-adjusted, `change_med_HH_Income`) 
+
+* Change in percentage of people with a graduate or professional degree from 2016 to 2020 (`change_Grad_Degree_Pct`)
+
+We also join the 2016 and 2020 dataframes into one, keeping a dataframe and spatial object that we will use for mapping purposes.
+
+```{r data_wrangle}
+acsTractsPHL20 <- acsTractsPHL.2020 %>%  
+  # rename to more readable variable names
+  rename(total_pop.2020 = B01001_001E,
+         total_HU.2020 = B25002_001E,
+         total_vacant.2020 = B25002_003E,
+         med_HH_Income.2020 = B19013_001E,
+         total_White.2020 = B02001_002E,
+         total_GradDeg.2020 = B06009_006E) %>% 
+  # create new variables for percent vacant and percent white
+  mutate(pctVacant.2020 = total_vacant.2020/total_HU.2020,
+         pctWhite.2020   = total_White.2020/total_pop.2020)
+
+acsTractsPHL16 <- acsTractsPHL.2016 %>% 
+  rename (total_pop.2016 = B01001_001E,
+          total_HU.2016 = B25002_001E,
+          total_vacant.2016 = B25002_003E,
+          med_HH_Income.2016 = B19013_001E,
+          total_White.2016 = B02001_002E,
+          total_GradDeg.2016 = B06009_006E) %>%
+  mutate(pctVacant.2016 = total_vacant.2016/total_HU.2016,
+         pctVacant16 = round(pctVacant.2016*100, 1),
+         pctWhite.2016 = total_White.2016/total_pop.2016)
+
+# join 2016 and 2020 data and create change variables
+allACS <- left_join(acsTractsPHL16 %>% 
+                      st_drop_geometry() %>% 
+                      as.data.frame(), 
+                    acsTractsPHL20 %>% 
+                      st_drop_geometry() %>% 
+                      as.data.frame(),
+                    by= c("GEOID")) %>%
+  # create a change in median HH inc variable adjusting for inflation
+  mutate(change_med_HH_Income = med_HH_Income.2020 - (med_HH_Income.2016 * 1.08),
+         change_Grad_Degree_Pct = (total_GradDeg.2020/total_pop.2020) - (total_GradDeg.2016/total_pop.2016))
+
+```
+
+
+### Adding Mt. Airy Tract Identifier
+
+In addition, we create a new column `mtAiry` to identify the tracts that are included within the Mt. Airy neighborhood.
+
+```{r mtairy_tracts}
+mtAiryTracts <- c("42101023500", 
+                  "42101023600", 
+                  "42101023700", 
+                  "42101025300", 
+                  "42101025400",
+                  "42101025500", 
+                  "42101025600", 
+                  "42101038800")
+
+allACS_mtAiry <- allACS %>%
+  mutate(mtAiry = ifelse(GEOID %in% mtAiryTracts, "Mt. Airy", "Rest of Philadelphia"))
+```
+
+# Assignment
+
+## Change in Vacant Housing Units
+
+The first task of this assignment was to plot the number of vacant housing units per tract in 2020 as a function of vacant housing units in 2016 using `ggplot`.
+
+```{r changeVacantHousing}
+changeVacantHousing <- ggplot(allACS_mtAiry) +
+  
+  geom_point(aes(x = total_vacant.2016, y = total_vacant.2020,
+             color = mtAiry)) +
+  
+  # add y = x line and label
+  geom_abline(slope = 1,
+              color = "grey",
+              linetype = "dashed") +
+  geom_richtext(aes(x = 725, y = 650, label = "Line of y = x"),
+                size = 7/.pt, lineheight = 0.5, color = "grey",
+                fill = NA, label.color = NA) +
+  
+  # add line of best fit and label
+  geom_smooth(aes(x = total_vacant.2016, y = total_vacant.2020),
+              method = "lm",
+              se = FALSE,
+              color = "darkgrey",
+              linetype = "dashed") +
+  geom_richtext(aes(x = 825, y = 550, label = "Line of best fit"),
+                size = 7/.pt, lineheight = 0.5, color = "darkgrey",
+                fill = NA, label.color = NA) +
+  
+  labs(title = "Change in Vacant Housing Units in Philadelphia from 2016 - 2020",
+       caption = "Data: US Census Bureau, ACS 5-year estimates",
+       x = "Total Vacant Housing Units in 2016", 
+       y = "Total Vacant Housing Units in 2020",
+       color = "Neighborhood") +
+  
+  theme_minimal() +
+  
+  # adjustments to the theme
+  theme(
+        legend.position = c(.95, .15),
+        legend.justification = c("right", "bottom"),
+        legend.box.just = "center",
+        legend.title = element_text(hjust = 0.5,
+                                    face = "bold"),
+        legend.margin = margin(6, 6, 6, 6),
+        legend.box.background = element_rect(fill = "white",
+                                             color = NA),
+        
+        plot.title = element_text(face = "bold"),
+        axis.title = element_text(size = 12),
+        plot.caption = element_text(size = 5)) +
+  
+  # custom colors
+  scale_color_manual(values = c(mycolors[2], mycolors[1]))
+
+changeVacantHousing
+
+```
+
+Though a few regions saw drastic changes in total number of vacant housing units between 2016 and 2020, the number of vacant housing units mostly remained consistent in most regions of Philadelphia.
+
+## Percentage of Vacant Housing Units in 2016
+
+The second task of this assignment was to make a ggplot map symbolizing the number of vacant housing units in 2016 as a percentage of total housing units (e.g. “total_HU.2016”) on a per-tract basis, outlining the Mt. Airy neighborhood on the map. 
+
+```{r percVacantMap}
+# make a few calculations about percentage of vacant housing units in 2016
+mean_VHU_phl <- round(mean(acsTractsPHL16 %>% 
+                             pull(pctVacant.2016),
+                           na.rm = T)*100, 1)
+
+mean_VHU_mtA <- round(mean(acsTractsPHL16 %>% 
+                             filter(GEOID %in% mtAiryTracts) %>% 
+                             pull(pctVacant.2016),
+                           na.rm = T)*100, 1)
+
+# now create ggplot map
+percVacantMap <- ggplot() +
+  # base map with percentage of vacant units
+  geom_sf(data = acsTractsPHL16, aes(fill = pctVacant16),
+          color = "#5C0202") +
+
+  geom_sf(data = acsTractsPHL16 %>%
+            filter(GEOID %in% mtAiryTracts) %>%
+            st_union(),
+          color = "white",
+          fill = "transparent") +
+
+  labs(title = "Percentage of Vacant Housing Units in 2016",
+       subtitle = "White oultine indicates Mt. Airy tracts",
+       caption = "Data: US Census Bureau, ACS 5-year estimates",
+       fill = "% Vacant Units") +
+  
+  # blank background
+  theme_void() +
+  
+  # custom colors
+  scale_fill_gradient(low = "#5C0202",
+                      high = "#D43232",
+                      na.value = "lightgrey") +
+  
+  # adjustments to the theme
+  theme(legend.position = c(.95, .05),
+        legend.justification = c("right", "bottom"),
+        legend.box.just = "center",
+        legend.title = element_text(hjust = 0.5,
+                                    face = "bold"),
+        legend.margin = margin(6, 6, 6, 6),
+        
+        plot.title = element_text(face = "bold"),
+        axis.title = element_text(size = 12),
+        plot.caption = element_text(size = 5))
+
+percVacantMap
+
+```
+
+Though there is a tract with a Housing Unit vacancy percentage of 23.7%, the average Housing Unit vacancy percentage of tracts within the Mt. Airy neighborhood are `r mean_VHU_mtA`% which is slightly lower than that of the city of Philadelphia as a whole, `r mean_VHU_phl`%, indicating that Mt. Airy housing units tend to be slightly more occupied than housing units in tracts outside of it.
+
+## Mean Vacant Units per Tract in Mt. Airy vs. the Rest of Philadelphia
+
+The last step of this assignment was to create a code chunk that renders a “kable” table showing a summary of mean number of vacant housing units per tract for Mt. Airy vs. the rest Philadelphia as a whole in 2020.
+
+```{r mean_VU_pertract}
+mean_VU_data <- allACS_mtAiry %>%
+  group_by(mtAiry) %>%
+  summarize(mean_VacantUnits = round(mean(total_vacant.2020, 
+                                    na.rm = T), 1))
+
+mean_VU_pertract <- mean_VU_data %>% 
+  kbl(caption = "Mean Vacant Units per tract in Mt. Airy vs Rest of Philadelphia",
+      col.names = c("Region", "Mean number of Vacant Units")) %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+mean_VU_pertract
+
+```
+
+According to this table, the mean number of vacant units per tract in Mt. Airy is `r as.numeric(mean_VU_data[1,2])`, while the mean number of vacant units per tract in the rest of Philadelphia is `r as.numeric(mean_VU_data[2,2])`. This means that on average, there are more vacant units in tracts outside of Mt. Airy compared to inside. However, just looking at the average amount of vacant units per tracts gives us a skewed understanding of Mt. Airy and the rest of Philadelphia because we are not taking into account the total number of available units in each tract. It would be more useful to compare mean percentage of vacant units in our study area.
